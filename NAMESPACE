@@ -1,0 +1,20 @@
+# =============================================================================
+# NAMESPACE for easyML - Sample Size Estimation
+# =============================================================================
+
+# Main functions
+export(ml_sample_size)
+export(estimate_n)
+export(estimate_n_plateau)
+
+# Plotting
+export(plot_learning_curve)
+
+# S3 methods
+S3method(print, ml_sample_size)
+
+# Imports
+importFrom(stats, sd, uniroot, plogis, rbinom, rnorm, nls, coef, predict,
+           aggregate, model.frame, model.response, model.matrix,
+           quantile, median, glm, lm, binomial)
+importFrom(pROC, roc, auc)

@@ -1,0 +1,42 @@
+Package: easyML
+Type: Package
+Title: Sample Size Estimation for Machine Learning via Monte Carlo Simulation
+Version: 1.0.0
+Date: 2026-01-22
+Authors@R: c(
+    person("Jose", "Ventura-Leon",
+           email = "jventuraleon@gmail.com",
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0003-2996-4244"))
+    )
+Description: Estimates the minimum sample size needed to achieve a target
+    performance in Machine Learning models using Monte Carlo simulation and
+    learning curves. Implements power-law curve fitting for extrapolation,
+    supports multiple test partitions for robustness assessment, bootstrap
+    confidence intervals for uncertainty quantification, and comprehensive
+    fit diagnostics. The methodology follows Ventura-Leon (2026) and provides
+    tools similar to G*Power but designed specifically for machine learning
+    applications in the social, health, and behavioral sciences.
+License: MIT + file LICENSE
+URL: https://github.com/jventural/easyML
+BugReports: https://github.com/jventural/easyML/issues
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends:
+    R (>= 4.0.0)
+Imports:
+    stats,
+    ranger,
+    xgboost,
+    pROC
+Suggests:
+    knitr,
+    rmarkdown,
+    e1071,
+    mlbench,
+    ggplot2,
+    testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Config/testthat/edition: 3
