@@ -1,6 +1,6 @@
 Package: easyML
 Type: Package
-Title: Sample Size Estimation for Machine Learning via Monte Carlo Simulation
+Title: Easy Machine Learning in R
 Version: 1.0.0
 Date: 2026-01-22
 Authors@R: c(

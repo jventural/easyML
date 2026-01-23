@@ -1,4 +1,4 @@
-# easyML: Sample Size Estimation for Machine Learning
+# easyML: Easy Machine Learning in R
 
 [![R-CMD-check](https://img.shields.io/badge/R--CMD--check-passing-brightgreen)](https://github.com/jventural/easyML)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
