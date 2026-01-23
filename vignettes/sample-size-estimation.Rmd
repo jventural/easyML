@@ -43,15 +43,16 @@ library(easyML)
 
 # Basic usage with simulated data
 result <- ml_sample_size(
-
-task = "classification",
+  task = "classification",
   metric = "auc",
   target = 0.80,
+  seed = 2026,
   reps = 100
 )
 
 # View recommendation
 result$recommend_n
+# [1] 600
 ```
 
 ## Core Concepts
@@ -115,7 +116,8 @@ result <- ml_sample_size(
 print(result)
 
 # Recommended sample size
-result$recommend_n  # e.g., 600
+result$recommend_n
+# [1] 600
 
 # Summary table with SE of success proportion
 result$summary[, c("n", "mean", "sd", "p_meet", "se_p_meet")]
@@ -169,6 +171,7 @@ $$SE(p_k) \approx \sqrt{\frac{p_k(1-p_k)}{R}}$$
 result_quick <- ml_sample_size(
   task = "classification",
   target = 0.80,
+  seed = 2026,
   reps = 50  # Quick exploration
 )
 
@@ -176,6 +179,7 @@ result_quick <- ml_sample_size(
 result_precise <- ml_sample_size(
   task = "classification",
   target = 0.80,
+  seed = 2026,
   reps = 200  # High precision
 )
 ```
@@ -205,6 +209,7 @@ result <- ml_sample_size(
   metric = "auc",
   target = 0.75,
   positive = "pos",
+  seed = 2026,
   reps = 100,
   n_outer_splits = 5,  # 5 independent partitions
   verbose = TRUE
@@ -216,12 +221,12 @@ result <- ml_sample_size(
 ```{r multi_partition, eval=FALSE}
 # View results across partitions
 result$outer_splits_results
-# $median: 100      # Median n* (use this as recommendation)
+# $median: 50       # Median n* (use this as recommendation)
 # $range: [50, 150] # Range of estimates
-# $cv: 0.32         # Coefficient of variation
+# $cv: 0.559        # Coefficient of variation
 
 # If CV > 50%, there's high uncertainty
-# Report: "n* = 100 (range: 50-150, CV = 32%)"
+# Report: "n* = 50 (range: 50-150, CV = 56%)"
 ```
 
 **Guideline**: If the range exceeds 50% of the median, report the full range
@@ -235,16 +240,17 @@ For formal inference about $n^*$, use bootstrap CIs:
 result <- ml_sample_size(
   task = "classification",
   target = 0.80,
+  seed = 2026,
   reps = 100,
   bootstrap_ci = TRUE,  # Enable bootstrap
   n_boot = 1000         # 1000 resamples
 )
 
-# View 95% CI
+# View 95% CI (values will vary)
 result$recommend_n_ci
-# $ci_lower: 400
-# $ci_upper: 800
-# $ci_median: 600
+# $ci_lower: 400   # Lower bound of 95% CI
+# $ci_upper: 800   # Upper bound of 95% CI
+# $ci_median: 600  # Bootstrap median
 ```
 
 **Interpretation**: "The recommended sample size is n* = 600 (95% CI: 400-800)."
@@ -259,14 +265,15 @@ result <- ml_sample_size(
   model = c("rf", "xgboost", "glm"),  # Compare 3 models
   metric = "auc",
   target = 0.80,
+  seed = 2026,
   reps = 50
 )
 
-# View recommendations by model
+# View recommendations by model (values will vary)
 result$recommend_n
-# $rf:      600
-# $xgboost: 600
-# $glm:     200
+# $rf:      600   # or higher depending on data
+# $xgboost: 600   # similar to RF
+# $glm:     200   # typically needs less data
 
 # GLM needs less data but may have lower asymptotic performance
 # RF/XGBoost need more data but achieve higher maximum AUC
@@ -335,6 +342,7 @@ result <- ml_sample_size(
   metric = "rmse",        # Or "mae", "r2"
   target = 1.0,           # Target RMSE ≤ 1.0
   target_dir = "lower_better",  # Auto-detected for RMSE
+  seed = 2026,
   reps = 100,
   sim_params = list(
     p = 15,
@@ -352,6 +360,7 @@ result <- ml_sample_size(
 result_explore <- ml_sample_size(
   task = "classification",
   target = 0.80,
+  seed = 2026,
   reps = 30,
   n_grid = seq(100, 1000, by = 100)
 )
@@ -360,6 +369,7 @@ result_explore <- ml_sample_size(
 result_final <- ml_sample_size(
   task = "classification",
   target = 0.80,
+  seed = 2026,
   reps = 200,
   n_grid = c(300, 400, 500, 600, 700, 800)  # Focus on relevant range
 )

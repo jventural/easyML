@@ -245,10 +245,15 @@ result <- ml_sample_size(
   task = "classification",
   metric = "auc",
   target = 0.80,
+  seed = 2026,
   n_grid = c(100, 200, 300, 400, 600, 800, 1000),
   reps = 100,
   sim_params = list(p = 20, prevalence = 0.20, signal = 2.5)
 )
+
+# View recommendation
+result$recommend_n
+# [1] 600
 
 # View results
 print(result)
@@ -276,17 +281,17 @@ result <- ml_sample_size(
   metric = "auc",
   target = 0.75,
   positive = "pos",
+  seed = 2026,
   reps = 100,
   n_outer_splits = 5,    # 5 independent partitions
-  bootstrap_ci = TRUE,   # Compute 95\% CI
   verbose = TRUE
 )
 
 # View aggregated results across partitions
 result$outer_splits_results
-# $median: 100
+# $median: 50
 # $range: [50, 150]
-# $cv: 0.25
+# $cv: 0.559
 
 # ==============================================
 # Example 3: Compare multiple models
@@ -296,15 +301,16 @@ result <- ml_sample_size(
   model = c("rf", "xgboost", "glm"),
   metric = "auc",
   target = 0.80,
+  seed = 2026,
   reps = 50,
   sim_params = list(signal = 2.5)
 )
 
-# Results by model
+# Results by model (values will vary)
 result$recommend_n
-# $rf: 600
-# $xgboost: 600
-# $glm: 200
+# $rf: 600       # Complex models need more data
+# $xgboost: 600  # Similar to RF
+# $glm: 200      # Simpler models need less data
 
 # Fit diagnostics by model
 result$curve_diagnostics

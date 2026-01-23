@@ -31,11 +31,13 @@ result <- ml_sample_size(
   task = "classification",
   metric = "auc",
   target = 0.80,
+  seed = 2026,
   reps = 100
 )
 
 # View recommendation
 result$recommend_n
+# [1] 600
 
 # Plot learning curve
 plot_learning_curve(result)
@@ -117,12 +119,20 @@ result <- ml_sample_size(
   metric = "auc",
   target = 0.75,
   positive = "pos",
+  seed = 2026,
   reps = 100,
-  n_outer_splits = 5,
-  bootstrap_ci = TRUE
+  n_outer_splits = 5
 )
 
-print(result)
+# View results
+result$recommend_n
+# [1] 50
+
+# Results across partitions
+result$outer_splits_results
+# $median: 50
+# $range: [50, 150]
+# $cv: 0.559
 ```
 
 ## Decision Criteria
