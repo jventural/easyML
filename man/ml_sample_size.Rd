@@ -326,6 +326,35 @@ estimate_n_plateau(result, delta = 0.01)
 
 # Use relative delta (1\% of target metric)
 estimate_n_plateau(result, delta = 0.01, relative = TRUE)
+
+# ==============================================
+# Example 5: Regression task
+# ==============================================
+# Sample size estimation for regression with RMSE target
+result_reg <- ml_sample_size(
+  task = "regression",
+  metric = "rmse",
+  target = 1.0,
+  target_dir = "lower_better",
+  seed = 2026,
+  n_grid = c(100, 200, 300, 400, 600, 800, 1000),
+  reps = 100,
+  sim_params = list(
+    p = 15,
+    noise_sd = 1.0
+  )
+)
+
+# View recommendation
+result_reg$recommend_n
+
+# The method works analogously for regression:
+# - Metrics: "rmse", "mae", "r2"
+# - target_dir: "lower_better" for RMSE/MAE, "higher_better" for R2
+# - Power-law model: m(n) = a + b * n^(-c) for error metrics
+
+# Plot learning curve
+plot_learning_curve(result_reg)
 }
 }
 \seealso{
