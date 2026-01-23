@@ -116,6 +116,7 @@ result <- ml_sample_size(
   task = "classification",
   metric = "auc",
   target = 0.75,
+  positive = "pos",
   reps = 100,
   n_outer_splits = 5,
   bootstrap_ci = TRUE
