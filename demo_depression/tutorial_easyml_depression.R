@@ -458,6 +458,7 @@ cat("Datos para sample size:", nrow(df_ss), "filas\n")
 # Estimar tamano de muestra con Random Forest
 # NOTA: Usamos reps >= 50 para estimaciones estables.
 # Con n_grid pequenos (20-100) se ve mejor la curva de aprendizaje.
+# target = 0.85 (AUC minimo aceptable para que la funcion determine n*)
 ss_result <- ml_sample_size(
   data        = df_ss,
   formula     = Depression ~ .,
@@ -465,7 +466,7 @@ ss_result <- ml_sample_size(
   model       = "rf",
   metric      = "auc",
   positive    = "Yes",
-  target      = 0.90,
+  target      = 0.85,
   n_grid      = c(20, 40, 60, 80, 100, 150, 200, 300, 500, 750, 1000),
   reps        = 50,
   prob_min    = 0.80,
@@ -476,15 +477,16 @@ ss_result <- ml_sample_size(
 )
 
 # --- Resultados ---
+# SALIDA ESPERADA:
+#   Recommended n*: 60
+#   Bootstrap 95% CI: [ 60 , 80 ]
+#   Interpretacion: Se necesitan al menos 60 participantes para que
+#   Random Forest alcance un AUC >= 0.85 en el 80% de las repeticiones.
 print(ss_result)
 
-# Estimar N para un AUC objetivo de 0.90
-# (0.85 se alcanza con muy pocas observaciones en este dataset)
+# Estimar N con la curva ajustada para un AUC objetivo de 0.90
+# (extrapolacion basada en el modelo power-law)
 estimate_n(ss_result, target_metric = 0.90)
-
-# Estimar N en la meseta (donde agregar mas datos ya no mejora)
-# delta = 0.005 porque la curva mejora poco entre tamaños grandes
-estimate_n_plateau(ss_result, delta = 0.005)
 
 # --- Graficos ---
 # Curva de aprendizaje (N vs rendimiento)
