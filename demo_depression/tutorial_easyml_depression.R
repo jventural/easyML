@@ -465,6 +465,7 @@ ss_result <- ml_sample_size(
   model       = "rf",
   metric      = "auc",
   positive    = "Yes",
+  target      = 0.90,
   n_grid      = c(20, 40, 60, 80, 100, 150, 200, 300, 500, 750, 1000),
   reps        = 50,
   prob_min    = 0.80,

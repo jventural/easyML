@@ -798,10 +798,11 @@ print.ml_sample_size <- function(x, ...) {
   }
 
   cat("\n--- Summary by sample size ---\n")
-  # Show relevant columns
+  # Show relevant columns sorted by model and n
   cols_to_show <- c("model", "n", "mean", "sd", "p_meet", "se_p_meet")
   cols_available <- intersect(cols_to_show, names(x$summary))
-  print(x$summary[, cols_available], row.names = FALSE, digits = 3)
+  summary_sorted <- x$summary[order(x$summary$model, x$summary$n), cols_available]
+  print(summary_sorted, row.names = FALSE, digits = 3)
 
   invisible(x)
 }

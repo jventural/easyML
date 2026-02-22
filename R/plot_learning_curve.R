@@ -242,3 +242,31 @@ plot_distribution <- function(x, ...) {
     }
   }
 }
+
+
+#' Plot All Graphs for Sample Size Results
+#'
+#' Displays learning curve and distribution plots side by side.
+#'
+#' @param x Object of class ml_sample_size
+#' @param ... Additional arguments
+#'
+#' @export
+plot_all.ml_sample_size <- function(x, ...) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("ggplot2 is required for plot_all")
+  }
+
+  # Capture plots without printing them individually
+  p1 <- suppressMessages(plot_learning_curve(x))
+  p2 <- suppressMessages(plot_distribution(x))
+
+  if (requireNamespace("patchwork", quietly = TRUE)) {
+    combined <- p1 + p2 + patchwork::plot_layout(ncol = 2)
+    print(combined)
+  } else {
+    print(p1)
+    print(p2)
+  }
+  invisible(list(learning_curve = p1, distribution = p2))
+}
