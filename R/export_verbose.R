@@ -1008,6 +1008,11 @@ generate_report_from_json <- function(json_path,
 #' @export
 launch_report_generator <- function(launch.browser = TRUE) {
 
+  if (!requireNamespace("shiny", quietly = TRUE)) {
+    stop("Package 'shiny' is required. Install with: install.packages('shiny')",
+         call. = FALSE)
+  }
+
   app_dir <- system.file("shiny/report_generator", package = "easyML")
 
   if (app_dir == "") {
@@ -1893,6 +1898,11 @@ generate_report_with_ai <- function(json_path,
 #'
 #' @export
 launch_easyml_app <- function(launch.browser = TRUE) {
+
+  if (!requireNamespace("shiny", quietly = TRUE)) {
+    stop("Package 'shiny' is required. Install with: install.packages('shiny')",
+         call. = FALSE)
+  }
 
   app_dir <- system.file("shiny/easyml_app", package = "easyML")
 

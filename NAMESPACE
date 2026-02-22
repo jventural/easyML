@@ -17,6 +17,11 @@ export(eda_numeric)
 export(eda_outliers)
 export(eda_correlation)
 export(eda_vif)
+export(eda_basic)
+export(eda_numeric_basic)
+export(eda_categorical_basic)
+export(eda_correlation_basic)
+export(eda_leakage)
 
 # FUNCIONES PREPROCESAMIENTO
 export(preprocess_data)
@@ -69,9 +74,14 @@ export(diversity_split)
 # FUNCIONES AVANZADAS
 export(detect_data_leakage)
 export(optimize_threshold)
+export(apply_threshold)
+export(plot_threshold_optimization)
 export(calibrate_probabilities)
+export(plot_calibration_curve)
 export(advanced_residual_analysis)
+export(plot_residual_diagnostics)
 export(run_nested_cv)
+export(cv_feature_selection)
 
 # FUNCIONES DE EXPORTACION Y REPORTES
 export(easy_ml_capture)
@@ -87,6 +97,13 @@ export(explain_with_ai)
 # FUNCIONES DE GRAFICOS
 export(generate_all_plots)
 export(save_all_plots)
+export(get_figures_catalog)
+export(print_figures_catalog)
+
+# FUNCIONES FEATURE ENGINEERING
+export(auto_feature_engineering)
+export(apply_custom_features)
+export(analyze_interactions_splines)
 
 # METODOS S3
 S3method(print, easyml)
