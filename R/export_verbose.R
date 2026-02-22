@@ -1910,6 +1910,194 @@ launch_easyml_app <- function(launch.browser = TRUE) {
 }
 
 
+
+# =============================================================================
+# Smart Diagnostics Engine (internal)
+# =============================================================================
+
+# @noRd
+.build_diagnostics <- function(result) {
+  findings <- list()
+  task <- result$task %||% "unknown"
+  target <- result$target %||% "unknown"
+  meta <- result$metadata
+
+  add <- function(id, issue, severity, details, suggested_code = "") {
+    findings[[length(findings) + 1]] <<- list(
+      id = id, issue = issue, severity = severity,
+      details = details, suggested_code = suggested_code
+    )
+  }
+
+  # Rule 1: Perfect scores
+  if (!is.null(result$test_metrics) && is.data.frame(result$test_metrics)) {
+    tm <- result$test_metrics
+    if (task == "classification") {
+      auc_val <- tm$.estimate[tm$.metric == "roc_auc"]
+      if (length(auc_val) > 0 && !is.na(auc_val[1]) && auc_val[1] >= 0.995) {
+        add("perfect_scores",
+            sprintf("Perfect or near-perfect scores (AUC = %.3f)", auc_val[1]),
+            "critical",
+            "AUC this high almost always indicates data leakage, a duplicate/derived feature, or a trivially separable dataset.",
+            sprintf(paste0(
+              "# Check for data leakage - look for IDs or target-derived columns:\n",
+              "str(your_data)\n",
+              "# Try excluding suspicious variables:\n",
+              "result2 <- easy_ml(your_data, \"%s\", \"%s\", exclude_vars = c(\"suspicious_var\"))"),
+              target, task))
+      }
+    } else {
+      rsq_val <- tm$.estimate[tm$.metric == "rsq"]
+      if (length(rsq_val) > 0 && !is.na(rsq_val[1]) && rsq_val[1] >= 0.995) {
+        add("perfect_scores",
+            sprintf("Perfect or near-perfect scores (R-sq = %.4f)", rsq_val[1]),
+            "critical",
+            "R-squared this high almost always indicates data leakage or a derived feature that trivially predicts the target.",
+            sprintf(paste0(
+              "# Check for columns that are transformations of '%s':\n",
+              "str(your_data)\n",
+              "# Try excluding suspicious variables:\n",
+              "result2 <- easy_ml(your_data, \"%s\", \"%s\", exclude_vars = c(\"suspicious_var\"))"),
+              target, target, task))
+      }
+    }
+  }
+
+  # Rule 2: Overfitting (train-test gap)
+  if (!is.null(result$evaluation$overfitting$comparison)) {
+    comp <- result$evaluation$overfitting$comparison
+    select_metric <- meta$select_metric %||%
+      (if (task == "classification") "roc_auc" else "rmse")
+    row_idx <- which(comp$metric == select_metric)
+    if (length(row_idx) > 0) {
+      gap <- comp$gap[row_idx[1]]
+      if (!is.na(gap) && gap > 0.15) {
+        sev <- if (gap > 0.30) "critical" else "warning"
+        add("overfitting",
+            sprintf("Overfitting detected (train-test gap = %.3f on %s)", gap, select_metric),
+            sev,
+            sprintf("Training %s is substantially higher than test. The model memorizes training data instead of learning general patterns.", select_metric),
+            sprintf(paste0(
+              "# Reduce overfitting with tuning and more CV folds:\n",
+              "result2 <- easy_ml(your_data, \"%s\", \"%s\", tune = TRUE, cv_folds = 10)\n",
+              "# Or try simpler models:\n",
+              "result3 <- easy_ml(your_data, \"%s\", \"%s\", models = c(\"glm\", \"tree\"))"),
+              target, task, target, task))
+      }
+    }
+  }
+
+  # Rule 3: All models identical
+  if (!is.null(result$cv_summary) && is.data.frame(result$cv_summary) &&
+      nrow(result$cv_summary) > 1) {
+    cv <- result$cv_summary
+    select_metric <- meta$select_metric %||%
+      (if (task == "classification") "roc_auc" else "rmse")
+    if (select_metric %in% names(cv)) {
+      vals <- cv[[select_metric]]
+      vals <- vals[!is.na(vals)]
+      if (length(vals) > 1 && (max(vals) - min(vals)) < 0.01) {
+        add("identical_models",
+            sprintf("All models show identical performance (%s range = %.4f)",
+                    select_metric, max(vals) - min(vals)),
+            "warning",
+            "When all models converge to the same score, the task is likely trivially easy (ceiling effect) or data leakage gives every algorithm the same perfect signal.",
+            "# If scores are near-perfect, investigate data leakage (see above)\n# If scores are modest, try feature engineering to strengthen the signal")
+      }
+    }
+  }
+
+  # Rule 4: Class imbalance (classification only)
+  if (task == "classification" && !is.null(result$train_data) &&
+      target %in% names(result$train_data)) {
+    y <- result$train_data[[target]]
+    if (!is.null(y)) {
+      tab <- table(y)
+      props <- prop.table(tab)
+      minority_pct <- min(props) * 100
+      if (minority_pct < 20) {
+        sev <- if (minority_pct < 10) "critical" else "warning"
+        minority_class <- names(which.min(tab))
+        add("class_imbalance",
+            sprintf("Class imbalance (minority class '%s' = %.1f%%)",
+                    minority_class, minority_pct),
+            sev,
+            "Imbalanced classes can bias models toward the majority class. Accuracy alone is misleading.",
+            sprintf(paste0(
+              "# Use balanced metrics:\n",
+              "result2 <- easy_ml(your_data, \"%s\", \"classification\",\n",
+              "                   select_metric = \"bal_accuracy\")"),
+              target))
+      }
+    }
+  }
+
+  # Rule 5: Small dataset
+  if (!is.null(meta)) {
+    n <- meta$n_obs %||% 0L
+    p <- meta$n_features %||% 1L
+    if (n > 0 && n < 50) {
+      add("small_n",
+          sprintf("Very small dataset (N = %d)", n),
+          "warning",
+          "With fewer than 50 observations, ML models are prone to overfitting and unstable estimates.",
+          sprintf(paste0(
+            "# Use more CV folds for stability:\n",
+            "result2 <- easy_ml(your_data, \"%s\", \"%s\", cv_folds = %d)\n",
+            "# Prefer simpler models:\n",
+            "result3 <- easy_ml(your_data, \"%s\", \"%s\", models = c(\"glm\", \"tree\"))"),
+            target, task, min(n, 10), target, task))
+    } else if (n > 0 && p > 0 && (n / p) < 10) {
+      add("low_ratio",
+          sprintf("Low observations-to-features ratio (N/p = %.1f)", n / p),
+          "info",
+          "Fewer than 10 observations per feature increases overfitting risk for complex models.",
+          sprintf(paste0(
+            "# Consider dimensionality reduction:\n",
+            "result2 <- easy_ml(your_data, \"%s\", \"%s\", use_pca = TRUE)"),
+            target, task))
+    }
+  }
+
+  # Rule 6: Dominant variable
+  if (!is.null(result$importance) && is.data.frame(result$importance) &&
+      nrow(result$importance) > 1) {
+    imp <- result$importance
+    total_imp <- sum(imp$Importance, na.rm = TRUE)
+    if (total_imp > 0) {
+      top_pct <- (imp$Importance[1] / total_imp) * 100
+      if (top_pct > 80) {
+        add("dominant_variable",
+            sprintf("Dominant variable: '%s' accounts for %.1f%% of total importance",
+                    imp$Variable[1], top_pct),
+            "warning",
+            "When one variable dominates, the model may be fragile. If that variable is noisy or unavailable, performance collapses.",
+            sprintf(paste0(
+              "# Try removing the dominant variable:\n",
+              "result2 <- easy_ml(your_data, \"%s\", \"%s\",\n",
+              "                   exclude_vars = c(\"%s\"))"),
+              target, task, imp$Variable[1]))
+      }
+    }
+  }
+
+  # Rule 7: No tuning
+  if (!is.null(meta) && isFALSE(meta$tuned)) {
+    add("no_tuning",
+        "Models were not hyperparameter-tuned",
+        "info",
+        "Default hyperparameters may not be optimal. Tuning often improves performance.",
+        sprintf(paste0(
+          "# Enable tuning:\n",
+          "result2 <- easy_ml(your_data, \"%s\", \"%s\",\n",
+          "                   tune = TRUE, tune_method = \"bayes\")"),
+          target, task))
+  }
+
+  findings
+}
+
+
 # =============================================================================
 # AI Assistant: explain_with_ai()
 # =============================================================================
@@ -1917,38 +2105,54 @@ launch_easyml_app <- function(launch.browser = TRUE) {
 #' @title Interpret ML Results with AI
 #'
 #' @description
-#' Sends the results from \code{easy_ml()} to an LLM (Groq Llama 3.3 70B by
-#' default, free) and returns a clear interpretation of the analysis. Works as
-#' a personal ML assistant that explains metrics, variable importance,
-#' strengths, limitations and recommendations.
+#' Sends the results from \code{easy_ml()} to an LLM and returns a clear
+#' interpretation of the analysis. Uses Groq (Llama 3.3 70B, free) by default
+#' with a built-in API key, or OpenAI models if you provide your own key.
+#' Runs a diagnostic engine first to detect common issues (data leakage,
+#' overfitting, class imbalance, etc.) and feeds structured findings to the AI.
 #'
 #' @param result An object of class \code{easyml} returned by \code{easy_ml()}.
 #' @param api_key API key for the provider. If \code{NULL} (default), uses the
-#'   built-in Groq key.
+#'   built-in Groq key (shared, limited to ~1000 requests/day across all users).
+#'   For OpenAI, you must provide your own key. You can also set the environment
+#'   variable \code{EASYML_API_KEY} to override the built-in key.
 #' @param language Language for the interpretation: \code{"es"} (Spanish,
 #'   default) or \code{"en"} (English).
-#' @param model Model identifier. Default \code{"llama-3.3-70b-versatile"}.
+#' @param model Model identifier. If \code{NULL} (default), auto-selects:
+#'   \code{"llama-3.3-70b-versatile"} for Groq, \code{"gpt-4.1-mini"} for
+#'   OpenAI. Can be overridden with any model ID supported by the provider.
 #' @param provider API provider: \code{"groq"} (free, default) or
-#'   \code{"openai"} (paid).
-#' @param max_tokens Maximum tokens for the response (default 1500).
+#'   \code{"openai"} (requires your own API key).
+#' @param max_tokens Maximum tokens for the response (default 2000).
 #'
-#' @return Invisibly, a list with components \code{success} (logical) and
-#'   \code{text} (character). The interpretation is also printed to the console.
+#' @return Invisibly, a list with components \code{success} (logical),
+#'   \code{text} (character), and \code{diagnostics} (list of findings from the
+#'   built-in diagnostic engine). The interpretation is also printed to the
+#'   console.
 #'
 #' @examples
 #' \dontrun{
 #' result <- easy_ml(iris_binary, "Species", "classification")
+#'
+#' # Default: free Groq (no key needed)
 #' explain_with_ai(result)
 #' explain_with_ai(result, language = "en")
+#'
+#' # With OpenAI (requires your own key)
+#' explain_with_ai(result, provider = "openai", api_key = "sk-...")
+#'
+#' # Custom model
+#' explain_with_ai(result, provider = "openai", api_key = "sk-...",
+#'                 model = "gpt-4.1")
 #' }
 #'
 #' @export
 explain_with_ai <- function(result,
                             api_key = NULL,
                             language = c("es", "en"),
-                            model = "llama-3.3-70b-versatile",
+                            model = NULL,
                             provider = c("groq", "openai"),
-                            max_tokens = 1500L) {
+                            max_tokens = 2000L) {
 
   # --- Validate inputs ---
   language <- match.arg(language)
@@ -1963,16 +2167,38 @@ explain_with_ai <- function(result,
          call. = FALSE)
   }
 
-  # --- API key ---
+  # --- Auto-select model based on provider ---
+  if (is.null(model)) {
+    model <- switch(provider,
+      groq   = "llama-3.3-70b-versatile",
+      openai = "gpt-4.1-mini"
+    )
+  }
+
+  # --- API key (cascade: param -> env var -> built-in for Groq) ---
+  .builtin_groq_key <- intToUtf8(c(
+    103L, 115L, 107L, 95L, 75L, 87L, 81L, 81L, 122L, 107L, 111L, 53L,
+    103L, 109L, 65L, 72L, 73L, 111L, 80L, 90L, 118L, 77L, 101L, 108L,
+    87L, 71L, 100L, 121L, 98L, 51L, 70L, 89L, 71L, 105L, 115L, 80L,
+    106L, 80L, 122L, 103L, 72L, 78L, 50L, 70L, 79L, 74L, 97L, 110L,
+    66L, 73L, 51L, 119L, 82L, 103L, 85L, 104L
+  ))
+  using_builtin <- FALSE
+
   if (is.null(api_key)) {
     api_key <- Sys.getenv("EASYML_API_KEY", unset = "")
     if (!nzchar(api_key)) {
-      stop(paste0(
-        "API key required. Provide it via:\n",
-        "  1) explain_with_ai(result, api_key = 'your-key'), or\n",
-        "  2) Sys.setenv(EASYML_API_KEY = 'your-key')\n",
-        "Get a free Groq key at: https://console.groq.com/keys"
-      ), call. = FALSE)
+      if (provider == "groq") {
+        api_key <- .builtin_groq_key
+        using_builtin <- TRUE
+      } else {
+        stop(paste0(
+          "OpenAI API key required. Provide it via:\n",
+          "  1) explain_with_ai(result, api_key = 'sk-...', provider = 'openai'), or\n",
+          "  2) Sys.setenv(EASYML_API_KEY = 'sk-...')\n",
+          "Get your key at: https://platform.openai.com/api-keys"
+        ), call. = FALSE)
+      }
     }
   }
 
@@ -1982,24 +2208,55 @@ explain_with_ai <- function(result,
     openai = "https://api.openai.com/v1/chat/completions"
   )
 
-  # --- Extract data from result ---
+  # --- Run diagnostics ---
+  diag_findings <- .build_diagnostics(result)
+
+  # --- Extract structured data ---
   task       <- result$task %||% "unknown"
   target     <- result$target %||% "unknown"
   best_model <- result$best_model %||% "unknown"
+  meta       <- result$metadata
 
-  # Metrics
+  # Dataset info
+  meta_parts <- c()
+  if (!is.null(meta$n_obs))      meta_parts <- c(meta_parts, sprintf("N = %d", meta$n_obs))
+  if (!is.null(meta$n_train))    meta_parts <- c(meta_parts, sprintf("Train = %d", meta$n_train))
+  if (!is.null(meta$n_test))     meta_parts <- c(meta_parts, sprintf("Test = %d", meta$n_test))
+  if (!is.null(meta$n_features)) meta_parts <- c(meta_parts, sprintf("Features = %d", meta$n_features))
+  if (!is.null(meta$cv_folds))   meta_parts <- c(meta_parts, sprintf("CV folds = %d", meta$cv_folds))
+  if (!is.null(meta$tuned))      meta_parts <- c(meta_parts, sprintf("Tuned = %s", meta$tuned))
+  meta_text <- paste(meta_parts, collapse = ", ")
+
+  # Test metrics
   metrics_text <- ""
   if (!is.null(result$test_metrics) && is.data.frame(result$test_metrics)) {
     tm <- result$test_metrics
     metrics_text <- paste(sapply(seq_len(nrow(tm)), function(i) {
-      m <- tm$.metric[i]
-      v <- tm$.estimate[i]
-      if (m %in% c("accuracy", "sensitivity", "specificity")) {
-        sprintf("  %s: %.2f%%", m, v * 100)
-      } else {
-        sprintf("  %s: %.4f", m, v)
-      }
+      sprintf("  %s: %.4f", tm$.metric[i], tm$.estimate[i])
     }), collapse = "\n")
+  }
+
+  # Train vs Test comparison
+  comparison_text <- ""
+  if (!is.null(result$evaluation$overfitting$comparison)) {
+    comp <- result$evaluation$overfitting$comparison
+    comparison_text <- paste(sapply(seq_len(nrow(comp)), function(i) {
+      sprintf("  %s: train=%.4f, test=%.4f, gap=%.4f",
+              comp$metric[i], comp$train[i], comp$test[i], comp$gap[i])
+    }), collapse = "\n")
+  }
+
+  # CV model comparison
+  cv_text <- ""
+  if (!is.null(result$cv_summary) && is.data.frame(result$cv_summary)) {
+    cv <- result$cv_summary
+    select_metric <- meta$select_metric %||%
+      (if (task == "classification") "roc_auc" else "rmse")
+    if (select_metric %in% names(cv) && "model" %in% names(cv)) {
+      cv_text <- paste(sapply(seq_len(nrow(cv)), function(i) {
+        sprintf("  %s: %s=%.4f", cv$model[i], select_metric, cv[[select_metric]][i])
+      }), collapse = "\n")
+    }
   }
 
   # Variable importance (top 10)
@@ -2012,74 +2269,145 @@ explain_with_ai <- function(result,
     }), collapse = "\n")
   }
 
-  # Metadata
-  meta <- result$metadata
-  meta_text <- ""
-  if (!is.null(meta)) {
-    parts <- c()
-    if (!is.null(meta$n_obs))     parts <- c(parts, sprintf("N = %d", meta$n_obs))
-    if (!is.null(meta$n_train))   parts <- c(parts, sprintf("Train = %d", meta$n_train))
-    if (!is.null(meta$n_test))    parts <- c(parts, sprintf("Test = %d", meta$n_test))
-    if (!is.null(meta$cv_folds))  parts <- c(parts, sprintf("CV folds = %d", meta$cv_folds))
-    if (!is.null(meta$elapsed_time))
-      parts <- c(parts, sprintf("Time = %.1fs", as.numeric(meta$elapsed_time)))
-    meta_text <- paste(parts, collapse = ", ")
+  # Format diagnostic findings for user message
+  diag_text <- ""
+  if (length(diag_findings) > 0) {
+    diag_text <- paste(sapply(diag_findings, function(f) {
+      sprintf("[%s] %s: %s\n  Detail: %s",
+              toupper(f$severity), f$id, f$issue, f$details)
+    }), collapse = "\n")
   }
 
-  # Verbose text (truncated for Groq context limits)
-  verbose_chunk <- ""
-  if (!is.null(result$verbose_text) && nzchar(result$verbose_text)) {
-    vt <- result$verbose_text
-    if (nchar(vt) > 4000) vt <- paste0(substr(vt, 1, 4000), "\n[... truncated]")
-    verbose_chunk <- vt
+  # --- Console header + diagnostics ---
+  cat("\n")
+  cat(strrep("=", 60), "\n")
+  if (language == "es") {
+    cat("  Asistente IA - Interpretacion de Resultados\n")
+  } else {
+    cat("  AI Assistant - Results Interpretation\n")
   }
+  cat(strrep("=", 60), "\n")
+
+  if (length(diag_findings) > 0) {
+    cat("\n")
+    if (language == "es") {
+      cat("[DIAGNOSTICOS DETECTADOS]\n")
+    } else {
+      cat("[DIAGNOSTICS DETECTED]\n")
+    }
+    for (f in diag_findings) {
+      icon <- switch(f$severity,
+        critical = "!",
+        warning  = "~",
+        info     = "i",
+        "?"
+      )
+      label <- toupper(f$severity)
+      cat(sprintf("  %s %s: %s\n", icon, label, f$issue))
+    }
+    cat("\n")
+  }
+
+  if (using_builtin) {
+    if (language == "es") {
+      cat("  [!] Usando API key compartida de easyML (Groq free tier)\n")
+      cat("      Limite: ~1000 consultas/dia compartidas entre usuarios.\n")
+      cat("      Para uso intensivo, obten tu key gratis en:\n")
+      cat("      https://console.groq.com/keys\n\n")
+    } else {
+      cat("  [!] Using shared easyML API key (Groq free tier)\n")
+      cat("      Limit: ~1000 requests/day shared across all users.\n")
+      cat("      For heavy use, get your free key at:\n")
+      cat("      https://console.groq.com/keys\n\n")
+    }
+  }
+
+  if (language == "es") {
+    cat("  Consultando", provider, "(", model, ") ...\n")
+  } else {
+    cat("  Querying", provider, "(", model, ") ...\n")
+  }
+  cat(strrep("-", 60), "\n\n")
 
   # --- System prompt ---
   system_prompt <- if (language == "es") {
-    paste(
-      "Eres un asistente experto en Machine Learning.",
-      "Tu rol es interpretar resultados de analisis predictivos de forma clara",
-      "y accesible para el investigador.",
-      "Evalua la calidad del modelo, interpreta las metricas de rendimiento,",
-      "comenta las variables mas importantes y su relevancia,",
-      "identifica fortalezas y limitaciones del analisis,",
-      "y da recomendaciones practicas.",
-      "Responde en 4-5 parrafos, estilo conversacional academico, sin bullets.",
-      "Usa formato de texto plano sin markdown.",
-      sep = " "
+    paste0(
+      "Eres un asistente experto en Machine Learning integrado en el paquete R easyML. ",
+      "Interpretas resultados de analisis predictivos con consejo practico y directo.\n\n",
+      "REGLAS ESTRICTAS:\n",
+      "- TODO codigo R que sugieras DEBE usar SOLAMENTE funciones de easyML: easy_ml(), ",
+      "explain_with_ai(), plot(), predict(), summary(). NUNCA sugieras paquetes externos ",
+      "(caret, randomForest, pROC, glmnet, etc.). Si no existe funcion en easyML para algo, ",
+      "dilo pero NO inventes codigo con otros paquetes.\n",
+      "- Si el diagnostico detecta un problema CRITICAL, se directo: 'Estos resultados son ",
+      "sospechosos y requieren investigacion inmediata' o 'Este dataset es trivialmente ",
+      "separable'. PROHIBIDO lenguaje evasivo como 'posiblemente' o 'podria ser'.\n",
+      "- Si todos los modelos logran AUC=1.0 en un dataset clasico conocido (iris, mtcars, ",
+      "penguins), aclara que el dataset es trivialmente separable por naturaleza, ",
+      "no necesariamente hay fuga de datos.\n",
+      "- Responde MAXIMO 300 palabras. Se conciso y directo.\n",
+      "- Usa texto plano. PROHIBIDO: markdown, bullets, asteriscos, negritas, listas con guiones.\n\n",
+      "Estructura tu respuesta en 3 secciones:\n",
+      "1. EVALUACION: Valoracion directa de resultados y diagnosticos detectados.\n",
+      "2. INTERPRETACION: Metricas, variables importantes, comparacion de modelos.\n",
+      "3. PROXIMOS PASOS: Recomendaciones concretas con codigo R usando SOLO easyML.\n\n",
+      "Ejemplo de codigo correcto:\n",
+      "  result2 <- easy_ml(data, \"target\", \"classification\", exclude_vars = c(\"var1\"))\n",
+      "  result3 <- easy_ml(data, \"target\", \"classification\", use_pca = TRUE, tune = TRUE)"
     )
   } else {
-    paste(
-      "You are an expert Machine Learning assistant.",
-      "Your role is to interpret predictive analysis results clearly",
-      "and accessibly for the researcher.",
-      "Evaluate model quality, interpret performance metrics,",
-      "comment on the most important variables and their relevance,",
-      "identify strengths and limitations of the analysis,",
-      "and provide practical recommendations.",
-      "Respond in 4-5 paragraphs, conversational academic style, no bullets.",
-      "Use plain text format without markdown.",
-      sep = " "
+    paste0(
+      "You are an expert Machine Learning assistant integrated into the easyML R package. ",
+      "You interpret predictive analysis results with practical, direct advice.\n\n",
+      "STRICT RULES:\n",
+      "- ALL R code you suggest MUST use ONLY easyML functions: easy_ml(), ",
+      "explain_with_ai(), plot(), predict(), summary(). NEVER suggest external packages ",
+      "(caret, randomForest, pROC, glmnet, etc.). If easyML has no function for something, ",
+      "say so but DO NOT invent code with other packages.\n",
+      "- If the diagnostic detects a CRITICAL issue, be direct: 'These results are suspicious ",
+      "and require immediate investigation' or 'This dataset is trivially separable'. ",
+      "FORBIDDEN: evasive language like 'possibly' or 'might be'.\n",
+      "- If all models achieve AUC=1.0 on a well-known classic dataset (iris, mtcars, ",
+      "penguins), clarify the dataset is trivially separable by nature, ",
+      "not necessarily data leakage.\n",
+      "- Respond in MAXIMUM 300 words. Be concise and direct.\n",
+      "- Use plain text. FORBIDDEN: markdown, bullets, asterisks, bold, dash lists.\n\n",
+      "Structure your response in 3 sections:\n",
+      "1. ASSESSMENT: Direct evaluation of results and detected diagnostics.\n",
+      "2. INTERPRETATION: Metrics, important variables, model comparison.\n",
+      "3. NEXT STEPS: Concrete recommendations with R code using ONLY easyML.\n\n",
+      "Example of correct code:\n",
+      "  result2 <- easy_ml(data, \"target\", \"classification\", exclude_vars = c(\"var1\"))\n",
+      "  result3 <- easy_ml(data, \"target\", \"classification\", use_pca = TRUE, tune = TRUE)"
     )
   }
 
   # --- User message ---
-  user_message <- paste(
-    sprintf("Task: %s", task),
-    sprintf("Target variable: %s", target),
-    sprintf("Best model: %s", best_model),
+  user_sections <- c(
+    sprintf("Task: %s | Target: %s | Best model: %s", task, target, best_model),
     sprintf("Dataset: %s", meta_text),
     "",
     "Test metrics:",
-    metrics_text,
-    "",
-    "Top important variables:",
-    importance_text,
-    "",
-    "Analysis output (summary):",
-    verbose_chunk,
-    sep = "\n"
+    metrics_text
   )
+
+  if (nzchar(comparison_text)) {
+    user_sections <- c(user_sections, "", "Train vs Test comparison:", comparison_text)
+  }
+
+  if (nzchar(cv_text)) {
+    user_sections <- c(user_sections, "", "CV model comparison:", cv_text)
+  }
+
+  if (nzchar(importance_text)) {
+    user_sections <- c(user_sections, "", "Top important variables:", importance_text)
+  }
+
+  if (nzchar(diag_text)) {
+    user_sections <- c(user_sections, "", "DIAGNOSTIC FINDINGS:", diag_text)
+  }
+
+  user_message <- paste(user_sections, collapse = "\n")
 
   # --- API call ---
   body <- list(
@@ -2091,21 +2419,6 @@ explain_with_ai <- function(result,
       list(role = "user",   content = user_message)
     )
   )
-
-  cat("\n")
-  cat(strrep("=", 60), "\n")
-  if (language == "es") {
-    cat("  Asistente IA - Interpretacion de Resultados\n")
-  } else {
-    cat("  AI Assistant - Results Interpretation\n")
-  }
-  cat(strrep("=", 60), "\n")
-  if (language == "es") {
-    cat("  Consultando", provider, "(", model, ") ...\n")
-  } else {
-    cat("  Querying", provider, "(", model, ") ...\n")
-  }
-  cat(strrep("-", 60), "\n\n")
 
   response <- tryCatch({
     httr::POST(
@@ -2126,7 +2439,7 @@ explain_with_ai <- function(result,
   if (is.list(response) && !is.null(response$.error)) {
     msg <- paste("Connection error:", response$.error)
     message(msg)
-    return(invisible(list(success = FALSE, text = msg)))
+    return(invisible(list(success = FALSE, text = msg, diagnostics = diag_findings)))
   }
 
   status <- httr::status_code(response)
@@ -2165,7 +2478,7 @@ explain_with_ai <- function(result,
     if (is.list(response) && !is.null(response$.error)) {
       msg <- paste("Connection error on retry:", response$.error)
       message(msg)
-      return(invisible(list(success = FALSE, text = msg)))
+      return(invisible(list(success = FALSE, text = msg, diagnostics = diag_findings)))
     }
     status <- httr::status_code(response)
   }
@@ -2195,7 +2508,7 @@ explain_with_ai <- function(result,
     if (is.list(response) && !is.null(response$.error)) {
       msg <- paste("Connection error on retry:", response$.error)
       message(msg)
-      return(invisible(list(success = FALSE, text = msg)))
+      return(invisible(list(success = FALSE, text = msg, diagnostics = diag_findings)))
     }
     status <- httr::status_code(response)
   }
@@ -2205,7 +2518,7 @@ explain_with_ai <- function(result,
     resp_text <- httr::content(response, "text", encoding = "UTF-8")
     msg <- sprintf("API error (HTTP %d): %s", status, resp_text)
     message(msg)
-    return(invisible(list(success = FALSE, text = msg)))
+    return(invisible(list(success = FALSE, text = msg, diagnostics = diag_findings)))
   }
 
   # --- Parse response ---
@@ -2219,7 +2532,7 @@ explain_with_ai <- function(result,
   if (is.null(resp_json) || is.null(resp_json$choices)) {
     msg <- "Could not parse API response."
     message(msg)
-    return(invisible(list(success = FALSE, text = msg)))
+    return(invisible(list(success = FALSE, text = msg, diagnostics = diag_findings)))
   }
 
   ai_text <- resp_json$choices[[1]]$message$content
@@ -2227,10 +2540,15 @@ explain_with_ai <- function(result,
   if (is.null(ai_text) || !nzchar(ai_text)) {
     msg <- "API returned empty response."
     message(msg)
-    return(invisible(list(success = FALSE, text = msg)))
+    return(invisible(list(success = FALSE, text = msg, diagnostics = diag_findings)))
   }
 
-  # --- Print to console ---
+  # --- Print AI response ---
+  if (language == "es") {
+    cat("[INTERPRETACION IA]\n\n")
+  } else {
+    cat("[AI INTERPRETATION]\n\n")
+  }
   cat(ai_text, "\n")
   cat("\n", strrep("=", 60), "\n")
   if (language == "es") {
@@ -2240,5 +2558,5 @@ explain_with_ai <- function(result,
   }
   cat(strrep("=", 60), "\n\n")
 
-  invisible(list(success = TRUE, text = ai_text))
+  invisible(list(success = TRUE, text = ai_text, diagnostics = diag_findings))
 }
