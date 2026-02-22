@@ -2,18 +2,13 @@
 
 [![R-CMD-check](https://img.shields.io/badge/R--CMD--check-passing-brightgreen)](https://github.com/jventural/easyML)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/jventural/easyML)
 
 ## Overview
 
-**easyML** provides tools for estimating the minimum sample size needed to achieve a target performance in Machine Learning models. Unlike traditional power analysis tools (like G*Power), this package is designed specifically for ML applications where analytical solutions are not available.
+**easyML** is a comprehensive R package that simplifies machine learning workflows for classification and regression. With a single function call (`easy_ml()`), the package automates the entire pipeline: exploratory data analysis, preprocessing, model training, hyperparameter tuning, evaluation, interpretability, and report generation.
 
-The package implements:
-
-- **Monte Carlo simulation** for generating learning curves
-- **Power-law fitting** for performance extrapolation
-- **Multiple decision criteria** (mean performance, probability of success, stability)
-- **Robustness protocols** for small samples
-- **Bootstrap confidence intervals** for uncertainty quantification
+Additionally, easyML provides specialized tools for **sample size estimation** via Monte Carlo simulation, and advanced **train/test splitting** strategies (block-based and diversity-based) for rigorous generalization assessment.
 
 ## Installation
 
@@ -21,13 +16,38 @@ The package implements:
 # Install from GitHub
 devtools::install_github("jventural/easyML")
 ```
+
 ## Quick Start
+
+### Complete ML Pipeline
 
 ```r
 library(easyML)
+library(mlbench)
+data(PimaIndiansDiabetes)
 
-# Estimate sample size for classification (AUC >= 0.80)
-result <- ml_sample_size(
+# One function does everything
+result <- easy_ml(
+  data = PimaIndiansDiabetes,
+  target = "diabetes",
+  task = "classification",
+  seed = 2026
+)
+
+# View results
+print(result)
+summary(result)
+plot(result)
+
+# Make predictions on new data
+predictions <- predict(result, new_data)
+```
+
+### Sample Size Estimation
+
+```r
+# Estimate minimum sample size for classification (AUC >= 0.80)
+size_result <- ml_sample_size(
   task = "classification",
   metric = "auc",
   target = 0.80,
@@ -36,139 +56,277 @@ result <- ml_sample_size(
 )
 
 # View recommendation
-result$recommend_n
-# [1] 600
+size_result$recommend_n
 
 # Plot learning curve
-plot_learning_curve(result)
+plot_learning_curve(size_result)
 ```
 
-## Main Functions
+## The `easy_ml()` Pipeline
 
-| Function | Description |
-|----------|-------------|
-| `ml_sample_size()` | Main function for sample size estimation via Monte Carlo |
-| `estimate_n()` | Extrapolate sample size for a specific target |
-| `estimate_n_plateau()` | Find sample size where performance plateaus |
-| `plot_learning_curve()` | Visualize learning curves |
+`easy_ml()` runs 8 stages automatically:
 
-## Key Features
+| Stage | Description |
+|-------|-------------|
+| 1. EDA | Dataset structure, target distribution, normality, missing values, outliers, correlations, VIF |
+| 2. Preprocessing | Train/test split, imputation, normalization, dummy encoding, class balancing, PCA |
+| 3. Feature Engineering | Optional automatic or custom feature creation |
+| 4. Modeling | Train multiple models with stratified k-fold cross-validation |
+| 5. Tuning | Hyperparameter optimization (random search, grid, Bayesian, racing) |
+| 6. Evaluation | Test set metrics, ROC, confusion matrix, calibration, threshold optimization |
+| 7. Interpretability | Variable importance and SHAP values |
+| 8. Visualization | Automatic generation of all diagnostic plots |
 
-### 1. Multiple Test Partitions (for small samples)
-
-When N < 1000, use multiple partitions to assess variability:
+### Parameters
 
 ```r
-result <- ml_sample_size(
-  data = my_small_data,
-  formula = outcome ~ .,
-  n_outer_splits = 5,  # 5 independent partitions
-  ...
+easy_ml(
+  data,
+  target,
+  task = c("auto", "classification", "regression"),
+  models = c("rf", "xgboost", "svm", "nnet", "glm", "tree"),
+  test_split = 0.20,
+  cv_folds = 10,
+  tune_best = TRUE,
+  tune_method = c("random", "grid", "bayes", "racing"),
+  feature_selection = FALSE,
+  balance_classes = FALSE,
+  balance_method = c("smote", "adasyn", "rose", "up", "down"),
+  impute = TRUE,
+  impute_method = c("median", "mean", "knn"),
+  normalize = TRUE,
+  normalize_method = c("zscore", "minmax"),
+  use_pca = FALSE,
+  run_eda = TRUE,
+  run_shap = TRUE,
+  optimize_threshold = TRUE,
+  calibrate_probs = FALSE,
+  check_leakage = TRUE,
+  nested_cv = FALSE,
+  seed = 2024,
+  verbose = TRUE
 )
-
-# Results include median, range, and CV of n*
-result$outer_splits_results
 ```
 
-### 2. Bootstrap Confidence Intervals
+### Supported Models
+
+| Model | Code | Engine |
+|-------|------|--------|
+| Random Forest | `"rf"` | ranger |
+| XGBoost | `"xgboost"` | xgboost |
+| SVM (RBF) | `"svm"` | kernlab |
+| Neural Network | `"nnet"` | nnet |
+| Logistic/Linear Regression | `"glm"` | glmnet |
+| Decision Tree | `"tree"` | rpart |
+
+### Working with Results
+
+```r
+# Print summary
+print(result)
+
+# Detailed comparison table
+summary(result)
+
+# Visualizations
+plot(result)                        # 2x2 panel
+plot(result, type = "importance")   # Variable importance
+plot(result, type = "roc")          # ROC curve
+plot(result, type = "confusion")    # Confusion matrix
+plot(result, type = "calibration")  # Calibration plot
+plot(result, type = "shap")         # SHAP summary
+plot(result, type = "threshold")    # Threshold optimization
+plot(result, type = "tuning")       # Hyperparameter tuning
+
+# Save all plots
+save_all_plots(result, path = "figures")
+
+# Predictions
+predict(result, new_data)
+predict(result, new_data, type = "prob")  # Probabilities
+```
+
+## Module Functions
+
+Each pipeline stage can also be used independently:
+
+### Exploratory Data Analysis
+
+```r
+eda_summary(data, target, task)       # Complete EDA
+eda_structure(data)                   # Dataset structure
+eda_missing(data)                     # Missing values analysis
+eda_outliers(data)                    # Outlier detection (IQR)
+eda_correlation(data, target)         # Correlation matrix
+eda_vif(data, target)                 # Multicollinearity (VIF)
+eda_normality(data, target)           # Shapiro-Wilk normality test
+```
+
+### Preprocessing
+
+```r
+preprocess_data(data, target, task)   # Full preprocessing pipeline
+prep_split(data, target, test_split)  # Train/test split
+prep_feature_selection(data, target)  # Boruta feature selection
+prep_recipe(data, target, task)       # tidymodels recipe creation
+```
+
+### Modeling
+
+```r
+train_models(data, target, task, models)  # Train and compare models
+setup_cv(data, cv_folds, task)            # Configure cross-validation
+define_models(models, task)               # Model specifications
+compare_models(cv_results, task)          # Compare and select best
+```
+
+### Tuning
+
+```r
+tune_best_model(model, recipe, cv, task,
+                method = "random",     # "random", "grid", "bayes", "racing"
+                grid_size = 20)
+```
+
+### Evaluation
+
+```r
+evaluate_model(final_fit, test_data, target, task)
+eval_metrics(predictions, target, task)
+eval_roc(predictions, target)
+eval_confusion(predictions, target)
+eval_calibration(predictions, target)
+```
+
+### Interpretability
+
+```r
+interpret_model(final_fit, train_data, target, task)
+calculate_shap(final_fit, data, n_shap = 100)
+plot_importance(importance_df)
+plot_shap_summary(shap_values)
+plot_shap_dependence(shap_values, variable)
+```
+
+### Advanced Analysis
+
+```r
+optimize_threshold(predictions, target)           # Youden, F1, or cost-based
+calibrate_probabilities(predictions, method)       # Platt or Isotonic
+detect_data_leakage(result)                        # Leakage indicators
+run_nested_cv(data, target, task, model)           # Nested CV
+advanced_residual_analysis(predictions, target)    # Residual diagnostics
+```
+
+## Sample Size Estimation
+
+Estimate the minimum sample size needed for a target ML performance, analogous to G*Power but for machine learning.
 
 ```r
 result <- ml_sample_size(
-  ...,
-  bootstrap_ci = TRUE,
-  n_boot = 1000
-)
-
-# 95% CI for n*
-result$recommend_n_ci
-```
-
-### 3. Fit Diagnostics
-
-```r
-# Check power-law fit quality before extrapolating
-result$curve_diagnostics
-# $pseudo_r2: 0.97
-# $fit_quality: "good"
-```
-
-### 4. Guidance for Choosing R (repetitions)
-
-The SE of the success proportion p_k follows:
-
-```
-SE(p_k) ≈ sqrt(p_k * (1 - p_k) / R)
-```
-
-| R | SE at p=0.80 | Use Case |
-|---|--------------|----------|
-| 50 | 0.057 | Exploratory |
-| 100 | 0.040 | Standard |
-| 200 | 0.028 | Publication |
-
-## Example with Real Data
-
-```r
-library(mlbench)
-data(PimaIndiansDiabetes)
-
-result <- ml_sample_size(
-  data = PimaIndiansDiabetes,
-  formula = diabetes ~ .,
+  data = my_data,           # Optional: use real data
+  formula = outcome ~ .,    # Optional: specify formula
   task = "classification",
   metric = "auc",
-  target = 0.75,
-  positive = "pos",
-  seed = 2026,
+  target = 0.80,
+  model = "rf",             # "rf", "xgboost", "svm", "glm"
   reps = 100,
-  n_outer_splits = 5
+  n_outer_splits = 5,       # Multiple partitions for robustness
+  bootstrap_ci = TRUE,      # 95% confidence interval for n*
+  seed = 2026
 )
 
-# View results
-result$recommend_n
-# [1] 50
+# Results
+result$recommend_n            # Recommended sample size
+result$recommend_n_ci         # Bootstrap CI
+result$outer_splits_results   # Cross-partition variability
+result$curve_diagnostics      # Power-law fit quality
 
-# Results across partitions
-result$outer_splits_results
-# $median: 50
-# $range: [50, 150]
-# $cv: 0.559
+# Visualizations
+plot_learning_curve(result)
+plot_distribution(result)
 ```
 
-## Decision Criteria
+### Decision Criteria
 
-The recommended sample size n* is the smallest n satisfying:
-
-1. **Mean performance** ≥ target
-2. **Probability of success** p_k ≥ 0.80
-3. **Stability** (optional): SD ≤ threshold
-
-Formally:
+The recommended n\* is the smallest n satisfying:
 
 ```
-n* = min{n_k : mean_k ≥ target AND p_k ≥ p_min}
+n* = min{n_k : mean_k >= target AND p_k >= p_min}
 ```
 
-## Supported Models
+Where p_k is the probability of success (default >= 0.80).
 
-- Random Forest (`model = "rf"`)
-- XGBoost (`model = "xgboost"`)
-- SVM (`model = "svm"`)
-- GLM (`model = "glm"`)
+### Supported Metrics
 
-## Supported Metrics
+| Task | Metrics |
+|------|---------|
+| Classification | `"auc"`, `"accuracy"`, `"f1"` |
+| Regression | `"rmse"`, `"mae"`, `"r2"` |
 
-**Classification:** `"auc"`, `"accuracy"`, `"f1"`
+## Train/Test Splitting Strategies
 
-**Regression:** `"rmse"`, `"mae"`, `"r2"`
+### Block Split
+
+For sequential or temporal data, creates train/test splits using contiguous blocks:
+
+```r
+split <- block_split(
+  data = my_data,
+  target = "outcome",
+  n_blocks = 5,
+  test_prop = 0.20
+)
+
+# Use the split
+train <- split$train
+test <- split$test
+```
+
+### Diversity Split
+
+Creates splits where test data is genuinely different from training data, enabling fairer generalization assessment:
+
+```r
+split <- diversity_split(
+  data = my_data,
+  target = "outcome",
+  test_prop = 0.20,
+  method = "cluster"   # "cluster", "dissimilarity", "boundary", "hybrid"
+)
+```
+
+## Report Generation
+
+Export results and generate scientific reports with AI:
+
+```r
+# Method 1: Export and launch interactive Shiny app
+result <- easy_ml_capture(data, target = "outcome", task = "classification")
+export_verbose_json(result, "analysis.json")
+launch_report_generator()
+
+# Method 2: Generate report directly from R
+generate_report_with_ai(
+  json_path = "analysis.json",
+  api_key = "sk-proj-...",
+  output_path = "Report.docx",
+  language = "es",
+  model = "gpt-4.1-mini"
+)
+
+# Method 3: One-step export (TXT + JSON)
+easy_ml_export(data, target = "outcome", task = "classification")
+```
 
 ## Citation
 
 If you use this package, please cite:
 
 ```
-Ventura-Leon, J. (2026). Sample Size Estimation for Machine Learning via
-Monte Carlo Simulation: Learning Curves and Power Laws.
+Ventura-Leon, J. (2026). easyML: Easy Machine Learning Pipeline for
+Classification and Regression in R. R package version 2.0.0.
+https://github.com/jventural/easyML
 ```
 
 ## Author

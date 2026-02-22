@@ -1,20 +1,106 @@
 # =============================================================================
-# NAMESPACE for easyML - Sample Size Estimation
+# NAMESPACE para easyML v2.0.0
 # =============================================================================
 
-# Main functions
+# FUNCION PRINCIPAL
+export(easy_ml)
+
+# FUNCIONES EDA
+export(eda_summary)
+export(eda_structure)
+export(eda_target_classification)
+export(eda_target_regression)
+export(eda_normality)
+export(eda_missing)
+export(eda_categorical)
+export(eda_numeric)
+export(eda_outliers)
+export(eda_correlation)
+export(eda_vif)
+
+# FUNCIONES PREPROCESAMIENTO
+export(preprocess_data)
+export(prep_target)
+export(prep_split)
+export(prep_feature_selection)
+export(prep_recipe)
+
+# FUNCIONES MODELADO
+export(train_models)
+export(setup_cv)
+export(define_models)
+export(fit_models_cv)
+export(compare_models)
+
+# FUNCIONES TUNING
+export(tune_best_model)
+export(plot_tuning)
+
+# FUNCIONES EVALUACION
+export(evaluate_model)
+export(eval_predictions)
+export(eval_metrics)
+export(eval_roc)
+export(eval_confusion)
+export(eval_calibration)
+export(eval_pred_vs_obs)
+export(eval_residuals)
+
+# FUNCIONES INTERPRETABILIDAD
+export(interpret_model)
+export(get_importance)
+export(calculate_shap)
+export(plot_importance)
+export(plot_shap_summary)
+export(plot_shap_dependence)
+
+# FUNCIONES SAMPLE SIZE
 export(ml_sample_size)
 export(estimate_n)
 export(estimate_n_plateau)
-
-# Plotting
 export(plot_learning_curve)
+export(plot_distribution)
+export(plot_all)
 
-# S3 methods
+# FUNCIONES DATA SPLITTING (github-specific)
+export(block_split)
+export(diversity_split)
+
+# FUNCIONES AVANZADAS
+export(detect_data_leakage)
+export(optimize_threshold)
+export(calibrate_probabilities)
+export(advanced_residual_analysis)
+export(run_nested_cv)
+
+# FUNCIONES DE EXPORTACION Y REPORTES
+export(easy_ml_capture)
+export(export_verbose_txt)
+export(export_verbose_json)
+export(easy_ml_export)
+export(generate_report_from_json)
+export(generate_report_with_ai)
+export(launch_report_generator)
+export(launch_easyml_app)
+export(explain_with_ai)
+
+# FUNCIONES DE GRAFICOS
+export(generate_all_plots)
+export(save_all_plots)
+
+# METODOS S3
+S3method(print, easyml)
+S3method(predict, easyml)
+S3method(summary, easyml)
+S3method(plot, easyml)
+S3method(plot_all, easyml)
 S3method(print, ml_sample_size)
+S3method(print, block_split)
+S3method(print, diversity_split)
 
-# Imports
+# IMPORTS
 importFrom(stats, sd, uniroot, plogis, rbinom, rnorm, nls, coef, predict,
-           aggregate, model.frame, model.response, model.matrix,
-           quantile, median, glm, lm, binomial)
+           as.formula, model.frame, model.response, model.matrix, reorder,
+           shapiro.test, cor, lm, quantile, median, aggregate, glm, binomial)
+importFrom(utils, head)
 importFrom(pROC, roc, auc)

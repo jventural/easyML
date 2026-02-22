@@ -1,22 +1,24 @@
 Package: easyML
 Type: Package
-Title: Easy Machine Learning in R
-Version: 1.0.0
-Date: 2026-01-22
+Title: Easy Machine Learning Pipeline for Classification and Regression
+Version: 2.0.0
+Date: 2026-02-21
 Authors@R: c(
     person("Jose", "Ventura-Leon",
            email = "jventuraleon@gmail.com",
            role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-2996-4244"))
     )
-Description: Estimates the minimum sample size needed to achieve a target
-    performance in Machine Learning models using Monte Carlo simulation and
-    learning curves. Implements power-law curve fitting for extrapolation,
-    supports multiple test partitions for robustness assessment, bootstrap
-    confidence intervals for uncertainty quantification, and comprehensive
-    fit diagnostics. The methodology follows Ventura-Leon (2026) and provides
-    tools similar to G*Power but designed specifically for machine learning
-    applications in the social, health, and behavioral sciences.
+Description: Simplifies machine learning workflows for classification and
+    regression tasks. Provides a single function interface (easy_ml) that
+    automatically handles preprocessing, model training, hyperparameter tuning,
+    evaluation, and interpretability analysis. Includes sample size estimation
+    tools (ml_sample_size) based on Monte Carlo simulation with power-law curve
+    fitting, supporting multiple test partitions for robustness, bootstrap
+    confidence intervals, and fit diagnostics. Features block-based and
+    diversity-based train/test splitting for enhanced generalization assessment.
+    Implements Random Forest, XGBoost, SVM, Neural Networks, and more using
+    the tidymodels framework.
 License: MIT + file LICENSE
 URL: https://github.com/jventural/easyML
 BugReports: https://github.com/jventural/easyML/issues
@@ -27,16 +29,34 @@ RoxygenNote: 7.3.2
 Depends:
     R (>= 4.0.0)
 Imports:
-    stats,
+    tidymodels,
+    tidyverse,
     ranger,
     xgboost,
-    pROC
+    kernlab,
+    nnet,
+    rpart,
+    glmnet,
+    vip,
+    probably,
+    stats,
+    pROC,
+    rlang
 Suggests:
     knitr,
+    kableExtra,
     rmarkdown,
+    Boruta,
+    themis,
+    fastshap,
+    shapviz,
+    patchwork,
+    naniar,
+    car,
+    readxl,
+    ggplot2,
     e1071,
     mlbench,
-    ggplot2,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
