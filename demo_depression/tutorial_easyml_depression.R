@@ -28,14 +28,14 @@ library(easyML)
 library(tidyverse)
 
 # Definir directorio de trabajo
-setwd("D:/14. LIBRERIAS/easyML")
+setwd("D:/14. LIBRERIAS/easyML_github/demo_depression")
 
 
 # ============================================================================
 # PREPARACION DE DATOS (comun a Parte A y B)
 # ============================================================================
 
-df <- read.csv("demo_depression/depression_data.csv", stringsAsFactors = FALSE)
+df <- read.csv("depression_data.csv", stringsAsFactors = FALSE)
 cat("Dimensiones originales:", nrow(df), "x", ncol(df), "\n")
 
 # Limpiar nombres de columnas
@@ -102,7 +102,7 @@ summary(result)
 plot(result)
 
 # --- Exportar reporte completo a TXT ---
-export_verbose_txt(result, file_path = "demo_depression/reporte_completo.txt")
+export_verbose_txt(result, file_path = "reporte_completo.txt")
 
 # --- Interpretacion con IA ---
 explain_with_ai(result, language = "es")
@@ -210,10 +210,14 @@ cat("Task: ", preprocess_result$task, "\n")
 # ============================================================================
 # Entrena multiples modelos con CV y compara su rendimiento.
 # Modelos disponibles: rf, xgboost, svm, nnet, glm, tree
+#
+# NOTA: Usamos rf y xgboost porque son los que soportan tuning (Paso 4).
+# Si usas los 6 modelos, puede ganar glm/svm que NO tienen tuning,
+# y el Paso 4 se omite (best_params = NULL).
 
 modeling_result <- train_models(
   preprocess_result = preprocess_result,
-  models            = c("rf", "xgboost", "svm", "nnet", "glm", "tree"),
+  models            = c("rf", "xgboost"),
   cv_folds          = 10,
   seed              = 2024,
   verbose           = TRUE
@@ -222,6 +226,12 @@ modeling_result <- train_models(
 # Ver comparacion de modelos
 cat("\nModelo ganador:", modeling_result$best_model, "\n")
 cat("Metrica de seleccion:", modeling_result$metric_used, "\n")
+
+# --- Alternativa: usar los 6 modelos disponibles ---
+# modeling_result <- train_models(
+#   preprocess_result = preprocess_result,
+#   models = c("rf", "xgboost", "svm", "nnet", "glm", "tree"),
+#   cv_folds = 10, seed = 2024, verbose = TRUE)
 
 # --- Alternativa: paso a paso con funciones individuales ---
 # cv_folds   <- setup_cv(preprocess_result$train_data, ...)
@@ -235,6 +245,7 @@ cat("Metrica de seleccion:", modeling_result$metric_used, "\n")
 # ============================================================================
 # Optimiza los hiperparametros del mejor modelo encontrado en el paso 3.
 # Metodos: "random" (rapido), "grid" (exhaustivo), "bayes", "racing"
+# NOTA: Solo funciona con RF y XGBoost (los demas no tienen hiperparametros tuneables).
 
 tuning_result <- tune_best_model(
   modeling_result = modeling_result,
@@ -269,7 +280,7 @@ evaluation_result <- evaluate_model(
 
 # Metricas en test
 cat("\nMetricas en test set:\n")
-print(evaluation_result$test_metrics)
+print(evaluation_result$metrics)
 
 # --- Funciones de evaluacion individuales ---
 # Si necesitas graficos o metricas especificas:
@@ -357,7 +368,7 @@ plot_calibration_curve(calibration_result)
 
 leakage_result <- detect_data_leakage(
   model_results = list(
-    test_metrics = evaluation_result$test_metrics,
+    test_metrics = evaluation_result$metrics,
     train_metrics = evaluation_result$train_metrics
   ),
   importance = interpret_result$importance,
@@ -415,7 +426,7 @@ print(catalog)
 
 # --- Guardar todos los graficos como archivos PNG ---
 save_all_plots(result,
-               path   = "demo_depression/figuras",
+               path   = "figuras",
                prefix = "depression",
                width  = 8,
                height = 6,
@@ -445,14 +456,17 @@ df_ss <- df %>%
 cat("Datos para sample size:", nrow(df_ss), "filas\n")
 
 # Estimar tamano de muestra con Random Forest
+# NOTA: Usamos reps >= 50 para estimaciones estables.
+# Con n_grid pequenos (20-100) se ve mejor la curva de aprendizaje.
 ss_result <- ml_sample_size(
   data        = df_ss,
   formula     = Depression ~ .,
   task        = "classification",
   model       = "rf",
-  metric      = "roc_auc",
-  n_grid      = c(50, 100, 200, 300, 500, 750, 1000, 1500, 2000),
-  reps        = 30,
+  metric      = "auc",
+  positive    = "Yes",
+  n_grid      = c(20, 40, 60, 80, 100, 150, 200, 300, 500, 750, 1000),
+  reps        = 50,
   prob_min    = 0.80,
   bootstrap_ci = TRUE,
   n_boot      = 500,
@@ -463,11 +477,13 @@ ss_result <- ml_sample_size(
 # --- Resultados ---
 print(ss_result)
 
-# Estimar N para un AUC objetivo de 0.85
-estimate_n(ss_result, target_metric = 0.85)
+# Estimar N para un AUC objetivo de 0.90
+# (0.85 se alcanza con muy pocas observaciones en este dataset)
+estimate_n(ss_result, target_metric = 0.90)
 
 # Estimar N en la meseta (donde agregar mas datos ya no mejora)
-estimate_n_plateau(ss_result, delta = 0.01)
+# delta = 0.005 porque la curva mejora poco entre tamaños grandes
+estimate_n_plateau(ss_result, delta = 0.005)
 
 # --- Graficos ---
 # Curva de aprendizaje (N vs rendimiento)
@@ -479,8 +495,8 @@ plot_distribution(ss_result)
 # Todos los graficos juntos
 plot_all(ss_result)
 
-# --- Guardar resultados en carpeta del curso ---
-output_dir <- "D:/9. IPCSAP/Curso Machine learning"
+# --- Guardar resultados ---
+output_dir <- "."
 
 # Guardar grafico de curva de aprendizaje
 ggsave(
@@ -503,7 +519,7 @@ ggsave(
 # Guardar el objeto completo (para reutilizar sin re-simular)
 saveRDS(ss_result, file = file.path(output_dir, "sample_size_depression_rf.rds"))
 
-cat("\nResultados guardados en:", output_dir, "\n")
+cat("\nResultados guardados en:", normalizePath(output_dir), "\n")
 
 
 # ============================================================================
@@ -515,7 +531,8 @@ cat("  Tutorial easyML completado exitosamente\n")
 cat(strrep("=", 60), "\n")
 cat("\n")
 cat("Archivos generados:\n")
-cat("  - demo_depression/reporte_completo.txt\n")
-cat("  - demo_depression/figuras/*.png\n")
-cat("  - D:/9. IPCSAP/Curso Machine learning/sample_size_*.png\n")
-cat("  - D:/9. IPCSAP/Curso Machine learning/sample_size_depression_rf.rds\n")
+cat("  - reporte_completo.txt\n")
+cat("  - figuras/*.png\n")
+cat("  - sample_size_learning_curve.png\n")
+cat("  - sample_size_distribution.png\n")
+cat("  - sample_size_depression_rf.rds\n")
