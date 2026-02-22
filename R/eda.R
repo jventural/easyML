@@ -204,6 +204,14 @@ eda_target_regression <- function(data, target, verbose = TRUE) {
 eda_normality <- function(data, target, verbose = TRUE) {
   y <- data[[target]]
 
+  if (!is.numeric(y)) {
+    if (verbose) {
+      cat("    [!] Variable objetivo '", target, "' no es numerica.\n", sep = "")
+      cat("        Shapiro-Wilk solo aplica a variables continuas (regresion).\n")
+    }
+    return(invisible(NULL))
+  }
+
   # Shapiro-Wilk (max 5000 obs)
   if (length(y) <= 5000) {
     shapiro_test <- shapiro.test(y)

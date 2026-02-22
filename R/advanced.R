@@ -288,6 +288,7 @@ calibrate_probabilities <- function(predictions,
   list(
     calibration_model = cal_model,
     predictions = predictions,
+    target = target,
     method = method,
     brier_original = brier_original,
     brier_calibrated = brier_calibrated,
@@ -326,10 +327,14 @@ plot_calibration_curve <- function(calibration_result, n_bins = 10) {
 
   predictions <- calibration_result$predictions
 
-  # Encontrar la variable target (factor)
-  factor_cols <- names(predictions)[sapply(predictions, is.factor)]
-  factor_cols <- factor_cols[!factor_cols %in% c(".pred_class", ".pred_class_optimized")]
-  target_col <- factor_cols[1]
+  # Usar target guardado por calibrate_probabilities
+  target_col <- calibration_result$target
+  if (is.null(target_col)) {
+    # Fallback: buscar factor que no sea .pred_class
+    factor_cols <- names(predictions)[sapply(predictions, is.factor)]
+    factor_cols <- factor_cols[!factor_cols %in% c(".pred_class", ".pred_class_optimized")]
+    target_col <- factor_cols[1]
+  }
 
   # Detectar clase positiva
   event_info <- .detect_event_level(predictions[[target_col]])
