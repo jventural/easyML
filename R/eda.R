@@ -228,6 +228,9 @@ eda_normality <- function(data, target, verbose = TRUE) {
     } else {
       cat("      - Distribucion aproximadamente normal\n")
     }
+    cat("\n    [Nota] La mayoria de modelos ML (RF, XGBoost, SVM, redes neuronales)\n")
+    cat("          NO requieren normalidad. Solo LDA y Naive Bayes Gaussiano\n")
+    cat("          la asumen. Este test es diagnostico, no un requisito.\n")
   }
 
   shapiro_test
@@ -332,10 +335,17 @@ eda_numeric <- function(data, target, verbose = TRUE) {
 #' @title Deteccion de outliers
 #' @param data Data frame
 #' @param verbose Mostrar resultados
-#' @param iqr_multiplier Multiplicador del IQR (default: 3 para ser conservador)
+#' @param method Metodo de deteccion: "mad" (default, robusto) o "iqr" (clasico)
+#' @param threshold Umbral para deteccion. Para MAD: z-score robusto (default: 3.29).
+#'   Para IQR: multiplicador del rango intercuartilico (default: 3).
 #' @export
-eda_outliers <- function(data, verbose = TRUE, iqr_multiplier = 3) {
+eda_outliers <- function(data, verbose = TRUE, method = c("mad", "iqr"), threshold = NULL) {
+  method <- match.arg(method)
   num_vars <- names(data)[sapply(data, is.numeric)]
+
+  if (is.null(threshold)) {
+    threshold <- if (method == "mad") 3.29 else 3
+  }
 
   if (length(num_vars) == 0) {
     if (verbose) cat("    No hay variables numericas para analizar outliers\n")
@@ -344,14 +354,24 @@ eda_outliers <- function(data, verbose = TRUE, iqr_multiplier = 3) {
 
   outlier_summary <- lapply(num_vars, function(v) {
     x <- data[[v]]
-    q1 <- quantile(x, 0.25, na.rm = TRUE)
-    q3 <- quantile(x, 0.75, na.rm = TRUE)
-    iqr <- q3 - q1
-    lower <- q1 - iqr_multiplier * iqr
-    upper <- q3 + iqr_multiplier * iqr
-    n_outliers <- sum(x < lower | x > upper, na.rm = TRUE)
-    pct_outliers <- round(n_outliers / sum(!is.na(x)) * 100, 2)
+    x_clean <- x[!is.na(x)]
 
+    if (method == "mad") {
+      med <- median(x_clean)
+      mad_val <- mad(x_clean, constant = 1.4826)
+      if (mad_val == 0) mad_val <- sd(x_clean)
+      z_robust <- abs(x_clean - med) / mad_val
+      n_outliers <- sum(z_robust > threshold)
+    } else {
+      q1 <- quantile(x_clean, 0.25)
+      q3 <- quantile(x_clean, 0.75)
+      iqr <- q3 - q1
+      lower <- q1 - threshold * iqr
+      upper <- q3 + threshold * iqr
+      n_outliers <- sum(x_clean < lower | x_clean > upper)
+    }
+
+    pct_outliers <- round(n_outliers / length(x_clean) * 100, 2)
     data.frame(variable = v, n_outliers = n_outliers, pct = pct_outliers)
   })
 
@@ -360,7 +380,11 @@ eda_outliers <- function(data, verbose = TRUE, iqr_multiplier = 3) {
 
   if (verbose) {
     vars_with_outliers <- outlier_df[outlier_df$n_outliers > 0, ]
-    cat("    Metodo: IQR x", iqr_multiplier, "(conservador)\n")
+    if (method == "mad") {
+      cat("    Metodo: MAD (z-score robusto > ", threshold, ")\n", sep = "")
+    } else {
+      cat("    Metodo: IQR x", threshold, "\n")
+    }
     cat("    Variables con outliers:", nrow(vars_with_outliers), "de", length(num_vars), "\n")
     if (nrow(vars_with_outliers) > 0) {
       for (i in 1:min(5, nrow(vars_with_outliers))) {

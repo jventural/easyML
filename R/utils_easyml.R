@@ -77,9 +77,9 @@
     eda = "Tukey, J. W. (1977). Exploratory data analysis. Addison-Wesley.",
     missing = "Little, R. J. A., & Rubin, D. B. (2019). Statistical analysis with missing data (3rd ed.). Wiley.",
     normality = "Shapiro, S. S., & Wilk, M. B. (1965). An analysis of variance test for normality. Biometrika, 52(3-4), 591-611.",
-    outliers = "Tukey, J. W. (1977). Exploratory data analysis. Addison-Wesley.",
+    outliers = "Theriault, R., Ben-Shachar, M. S., Patil, I., Ludecke, D., Wiernik, B. M., & Makowski, D. (2024). Check your outliers! An introduction to identifying statistical outliers in R with easystats. Behavior Research Methods, 56, 4162-4172. https://doi.org/10.3758/s13428-024-02356-w",
     correlation = "Cohen, J. (1988). Statistical power analysis for the behavioral sciences (2nd ed.). Lawrence Erlbaum.",
-    vif = "O'Brien, R. M. (2007). A caution regarding rules of thumb for variance inflation factors. Quality & Quantity, 41(5), 673-690.",
+    vif = "O'Brien, R. M. (2007). A caution regarding rules of thumb for variance inflation factors. Quality & Quantity, 41(5), 673-690. | Chan, J. Y.-L. et al. (2022). Mitigating the multicollinearity problem and its machine learning approach: A review. Mathematics, 10(8), 1283.",
 
     # Preprocesamiento
     train_test = "Hastie, T., Tibshirani, R., & Friedman, J. (2009). The elements of statistical learning (2nd ed.). Springer.",
@@ -92,7 +92,7 @@
     # Tratamiento de Outliers y Multicolinealidad
     winsorization = "Dixon, W. J. (1960). Simplified estimation from censored normal samples. The Annals of Mathematical Statistics, 31(2), 385-391.",
     correlation_removal = "Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. Springer. https://doi.org/10.1007/978-1-4614-6849-3",
-    vif_removal = "Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carre, G., ... & Lautenbach, S. (2013). Collinearity: A review of methods to deal with it and a simulation study evaluating their performance. Ecography, 36(1), 27-46.",
+    vif_removal = "Chan, J. Y.-L., Leow, S. M. H., Bea, K. T., Cheng, W. K., Phoong, S. W., Hong, Z.-W., & Chen, Y.-L. (2022). Mitigating the multicollinearity problem and its machine learning approach: A review. Mathematics, 10(8), 1283. https://doi.org/10.3390/math10081283",
 
     # Interacciones y Splines
     interactions = "Aiken, L. S., & West, S. G. (1991). Multiple regression: Testing and interpreting interactions. Sage Publications.",

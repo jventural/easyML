@@ -35,7 +35,7 @@
 #' @param balance_classes Para clasificacion, balancear clases (default: FALSE).
 #' @param balance_method Metodo de balanceo: "smote", "adasyn", "rose", "up", "down" (default: "smote").
 #' @param impute Imputar valores faltantes (default: TRUE).
-#' @param impute_method Metodo de imputacion: "median", "mean", "knn" (default: "median").
+#' @param impute_method Metodo de imputacion: "knn", "median", "mean" (default: "knn").
 #' @param normalize Normalizar variables numericas (default: TRUE).
 #' @param normalize_method Metodo de normalizacion: "zscore" (estandar), "minmax" (rango [0,1]) (default: "zscore").
 #' @param use_pca Aplicar PCA despues de normalizacion (default: FALSE).
@@ -141,7 +141,7 @@ easy_ml <- function(data,
                     balance_classes = FALSE,
                     balance_method = c("smote", "adasyn", "rose", "up", "down"),
                     impute = TRUE,
-                    impute_method = c("median", "mean", "knn"),
+                    impute_method = c("knn", "median", "mean"),
                     normalize = TRUE,
                     normalize_method = c("zscore", "minmax"),
                     use_pca = FALSE,
@@ -263,7 +263,7 @@ easy_ml <- function(data,
                               balance_classes = FALSE,
                               balance_method = c("smote", "adasyn", "rose", "up", "down"),
                               impute = TRUE,
-                              impute_method = c("median", "mean", "knn"),
+                              impute_method = c("knn", "median", "mean"),
                               normalize = TRUE,
                               normalize_method = c("zscore", "minmax"),
                               use_pca = FALSE,

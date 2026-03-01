@@ -35,7 +35,7 @@ preprocess_data <- function(data,
                             balance_classes = FALSE,
                             balance_method = c("smote", "adasyn", "rose", "up", "down"),
                             impute = TRUE,
-                            impute_method = c("median", "mean", "knn"),
+                            impute_method = c("knn", "median", "mean"),
                             normalize = TRUE,
                             normalize_method = c("zscore", "minmax"),
                             use_pca = FALSE,
@@ -244,7 +244,7 @@ prep_feature_selection <- function(data, target, seed = 2024, verbose = TRUE) {
 #' @title Crear receta de preprocesamiento
 #' @export
 prep_recipe <- function(data, target, task, impute = TRUE,
-                        impute_method = c("median", "mean", "knn"),
+                        impute_method = c("knn", "median", "mean"),
                         normalize = TRUE,
                         normalize_method = c("zscore", "minmax"),
                         use_pca = FALSE, pca_threshold = 0.95,
