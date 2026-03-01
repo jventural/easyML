@@ -22,7 +22,7 @@
 #' @param sd_max Maximum SD threshold for stability criterion.
 #' @param n_test Fixed test set size.
 #' @param n_outer_splits Number of independent test partitions for robustness.
-#'   Recommended 5-10 when N < 1000 to quantify variability in n*.
+#'   Automatically set to 5 when N < 1000 (if left at default 1).
 #' @param bootstrap_ci Logical. If TRUE, compute bootstrap 95\% CI for n*.
 #' @param n_boot Number of bootstrap resamples (default 1000).
 #' @param sampling Sampling type for classification: "stratified", "none", "up", "down".
@@ -201,8 +201,11 @@ ml_sample_size <- function(data = NULL,
 
   # Warn about small samples
   N_total <- nrow(pop_data)
-  if (N_total < 1000 && n_outer_splits == 1 && verbose) {
-    message("\nNote: N < 1000. Consider using n_outer_splits = 5-10 for robustness.")
+  if (N_total < 1000 && n_outer_splits == 1) {
+    n_outer_splits <- 5
+    if (verbose) {
+      message("\nNote: N < 1000. Automatically set n_outer_splits = 5 for robustness.")
+    }
   }
 
   # SE guidance based on reps
