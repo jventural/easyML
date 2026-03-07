@@ -4,14 +4,17 @@
 \alias{eda_outliers}
 \title{Deteccion de outliers}
 \usage{
-eda_outliers(data, verbose = TRUE, iqr_multiplier = 3)
+eda_outliers(data, verbose = TRUE, method = c("mad", "iqr"), threshold = NULL)
 }
 \arguments{
 \item{data}{Data frame}
 
 \item{verbose}{Mostrar resultados}
 
-\item{iqr_multiplier}{Multiplicador del IQR (default: 3 para ser conservador)}
+\item{method}{Metodo de deteccion: "mad" (default, robusto) o "iqr" (clasico)}
+
+\item{threshold}{Umbral para deteccion. Para MAD: z-score robusto (default: 3.29).
+Para IQR: multiplicador del rango intercuartilico (default: 3).}
 }
 \description{
 Deteccion de outliers

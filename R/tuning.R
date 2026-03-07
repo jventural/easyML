@@ -283,9 +283,12 @@ tune_best_model <- function(modeling_result,
 
   # Definir metricas
   if (task == "classification") {
+    f2_meas <- yardstick::metric_tweak("f2_meas", yardstick::f_meas, beta = 2)
     metrics_set <- yardstick::metric_set(
       yardstick::roc_auc,
-      yardstick::accuracy
+      yardstick::accuracy,
+      yardstick::mcc,
+      f2_meas
     )
     select_metric <- "roc_auc"
   } else {

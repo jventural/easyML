@@ -75,63 +75,68 @@
   references <- list(
     # EDA y Estadistica Descriptiva
     eda = "Tukey, J. W. (1977). Exploratory data analysis. Addison-Wesley.",
-    missing = "Little, R. J. A., & Rubin, D. B. (2019). Statistical analysis with missing data (3rd ed.). Wiley.",
-    normality = "Shapiro, S. S., & Wilk, M. B. (1965). An analysis of variance test for normality. Biometrika, 52(3-4), 591-611.",
+    missing = "Little, R. J. A., & Rubin, D. B. (2019). Statistical analysis with missing data (3rd ed.). Wiley. https://doi.org/10.1002/9781119482260",
+    normality = "Shapiro, S. S., & Wilk, M. B. (1965). An analysis of variance test for normality (complete samples). Biometrika, 52(3-4), 591-611. https://doi.org/10.1093/biomet/52.3-4.591",
     outliers = "Theriault, R., Ben-Shachar, M. S., Patil, I., Ludecke, D., Wiernik, B. M., & Makowski, D. (2024). Check your outliers! An introduction to identifying statistical outliers in R with easystats. Behavior Research Methods, 56, 4162-4172. https://doi.org/10.3758/s13428-024-02356-w",
-    correlation = "Cohen, J. (1988). Statistical power analysis for the behavioral sciences (2nd ed.). Lawrence Erlbaum.",
-    vif = "O'Brien, R. M. (2007). A caution regarding rules of thumb for variance inflation factors. Quality & Quantity, 41(5), 673-690. | Chan, J. Y.-L. et al. (2022). Mitigating the multicollinearity problem and its machine learning approach: A review. Mathematics, 10(8), 1283.",
+    correlation = "Cohen, J. (1988). Statistical power analysis for the behavioral sciences (2nd ed.). Lawrence Erlbaum Associates.",
+    vif = "O'Brien, R. M. (2007). A caution regarding rules of thumb for variance inflation factors. Quality & Quantity, 41(5), 673-690. https://doi.org/10.1007/s11135-006-9018-6 | Chan, J. Y.-L., Leow, S. M. H., Bea, K. T., Cheng, W. K., Phoong, S. W., Hong, Z.-W., & Chen, Y.-L. (2022). Mitigating the multicollinearity problem and its machine learning approach: A review. Mathematics, 10(8), 1283. https://doi.org/10.3390/math10081283",
 
     # Preprocesamiento
-    train_test = "Hastie, T., Tibshirani, R., & Friedman, J. (2009). The elements of statistical learning (2nd ed.). Springer. | Gholamy, A., Kreinovich, V., & Kosheleva, O. (2018). Why 70/30 or 80/20 relation between training and testing sets. IJITAS, 11(2), 105-111. | James, G., Witten, D., Hastie, T., & Tibshirani, R. (2021). An introduction to statistical learning (2nd ed.). Springer.",
-    cv = "Kohavi, R. (1995). A study of cross-validation and bootstrap for accuracy estimation. IJCAI, 14(2), 1137-1145. | Raschka, S. (2020). Model evaluation, model selection, and algorithm selection in machine learning. arXiv:1811.12808v3.",
-    stratified_cv = "Kohavi, R. (1995). A study of cross-validation and bootstrap for accuracy estimation. IJCAI, 14(2), 1137-1145.",
-    normalization = "Raschka, S. (2020). Model evaluation, model selection, and algorithm selection in machine learning. arXiv:1811.12808v3. | Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. Springer. https://doi.org/10.1007/978-1-4614-6849-3",
-    smote = "Chawla, N. V., Bowyer, K. W., Hall, L. O., & Kegelmeyer, W. P. (2002). SMOTE: Synthetic minority over-sampling technique. JAIR, 16, 321-357. | He, H., & Garcia, E. A. (2009). Learning from imbalanced data. IEEE TKDE, 21(9), 1263-1284.",
-    boruta = "Kursa, M. B., & Rudnicki, W. R. (2010). Feature selection with the Boruta package. Journal of Statistical Software, 36(11), 1-13.",
-    imputation = "Li, J., et al. (2024). Comparison of imputation methods for missing data in predictive modelling. BMC Med Res Methodol, 24, 41. | Kapoor, S., & Narayanan, A. (2023). Leakage and the reproducibility crisis in ML-based science. Patterns, 4(9), 100804.",
-    feature_engineering = "Zheng, A., & Casari, A. (2018). Feature engineering for machine learning. O'Reilly Media. | Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. Springer.",
+    train_test = "Hastie, T., Tibshirani, R., & Friedman, J. (2009). The elements of statistical learning: Data mining, inference, and prediction (2nd ed.). Springer. https://doi.org/10.1007/978-0-387-84858-7 | Gholamy, A., Kreinovich, V., & Kosheleva, O. (2018). Why 70/30 or 80/20 relation between training and testing sets: A pedagogical explanation. International Journal of Intelligent Technologies and Applied Statistics, 11(2), 105-111. | James, G., Witten, D., Hastie, T., & Tibshirani, R. (2021). An introduction to statistical learning: With applications in R (2nd ed.). Springer. https://doi.org/10.1007/978-1-0716-1418-1",
+    cv = "Kohavi, R. (1995). A study of cross-validation and bootstrap for accuracy estimation and model selection. In Proceedings of the 14th International Joint Conference on Artificial Intelligence (Vol. 2, pp. 1137-1145). Morgan Kaufmann. | Raschka, S. (2020). Model evaluation, model selection, and algorithm selection in machine learning. arXiv:1811.12808v3. https://doi.org/10.48550/arXiv.1811.12808",
+    stratified_cv = "Kohavi, R. (1995). A study of cross-validation and bootstrap for accuracy estimation and model selection. In Proceedings of the 14th International Joint Conference on Artificial Intelligence (Vol. 2, pp. 1137-1145). Morgan Kaufmann.",
+    normalization = "Raschka, S. (2020). Model evaluation, model selection, and algorithm selection in machine learning. arXiv:1811.12808v3. https://doi.org/10.48550/arXiv.1811.12808 | Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. Springer. https://doi.org/10.1007/978-1-4614-6849-3",
+    smote = "Chawla, N. V., Bowyer, K. W., Hall, L. O., & Kegelmeyer, W. P. (2002). SMOTE: Synthetic minority over-sampling technique. Journal of Artificial Intelligence Research, 16, 321-357. https://doi.org/10.1613/jair.953 | He, H., & Garcia, E. A. (2009). Learning from imbalanced data. IEEE Transactions on Knowledge and Data Engineering, 21(9), 1263-1284. https://doi.org/10.1109/TKDE.2008.239",
+    boruta = "Kursa, M. B., & Rudnicki, W. R. (2010). Feature selection with the Boruta package. Journal of Statistical Software, 36(11), 1-13. https://doi.org/10.18637/jss.v036.i11",
+    imputation = "Li, J., Tong, Y., Guan, Y., Wu, S., & Li, D. (2024). Comparison of imputation methods for missing data in predictive modelling of health outcomes. BMC Medical Research Methodology, 24, 41. https://doi.org/10.1186/s12874-024-02156-y | Kapoor, S., & Narayanan, A. (2023). Leakage and the reproducibility crisis in machine-learning-based science. Patterns, 4(9), 100804. https://doi.org/10.1016/j.patter.2023.100804",
+    feature_engineering = "Zheng, A., & Casari, A. (2018). Feature engineering for machine learning: Principles and techniques for data scientists. O'Reilly Media. | Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. Springer. https://doi.org/10.1007/978-1-4614-6849-3",
 
     # Tratamiento de Outliers y Multicolinealidad
-    winsorization = "Theriault, R., et al. (2024). Check your outliers! An introduction to identifying statistical outliers in R. Behavior Research Methods, 56, 4162-4172. https://doi.org/10.3758/s13428-024-02356-w",
+    winsorization = "Theriault, R., Ben-Shachar, M. S., Patil, I., Ludecke, D., Wiernik, B. M., & Makowski, D. (2024). Check your outliers! An introduction to identifying statistical outliers in R with easystats. Behavior Research Methods, 56, 4162-4172. https://doi.org/10.3758/s13428-024-02356-w",
     correlation_removal = "Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. Springer. https://doi.org/10.1007/978-1-4614-6849-3",
-    vif_removal = "O'Brien, R. M. (2007). A caution regarding rules of thumb for variance inflation factors. Quality & Quantity, 41(5), 673-690. | Chan, J. Y.-L., et al. (2022). Mitigating the multicollinearity problem and its machine learning approach: A review. Mathematics, 10(8), 1283.",
+    vif_removal = "O'Brien, R. M. (2007). A caution regarding rules of thumb for variance inflation factors. Quality & Quantity, 41(5), 673-690. https://doi.org/10.1007/s11135-006-9018-6 | Chan, J. Y.-L., Leow, S. M. H., Bea, K. T., Cheng, W. K., Phoong, S. W., Hong, Z.-W., & Chen, Y.-L. (2022). Mitigating the multicollinearity problem and its machine learning approach: A review. Mathematics, 10(8), 1283. https://doi.org/10.3390/math10081283",
 
     # Interacciones y Splines
     interactions = "Aiken, L. S., & West, S. G. (1991). Multiple regression: Testing and interpreting interactions. Sage Publications.",
-    splines = "Harrell, F. E. (2015). Regression modeling strategies: With applications to linear models, logistic and ordinal regression, and survival analysis (2nd ed.). Springer.",
+    splines = "Harrell, F. E. (2015). Regression modeling strategies: With applications to linear models, logistic and ordinal regression, and survival analysis (2nd ed.). Springer. https://doi.org/10.1007/978-3-319-19425-7",
 
     # Modelos
-    rf = "Breiman, L. (2001). Random forests. Machine Learning, 45(1), 5-32.",
-    xgboost = "Chen, T., & Guestrin, C. (2016). XGBoost: A scalable tree boosting system. KDD, 785-794.",
-    glm = "Nelder, J. A., & Wedderburn, R. W. M. (1972). Generalized linear models. Journal of the Royal Statistical Society A, 135(3), 370-384.",
-    svm = "Cortes, C., & Vapnik, V. (1995). Support-vector networks. Machine Learning, 20(3), 273-297.",
-    nnet = "Rumelhart, D. E., Hinton, G. E., & Williams, R. J. (1986). Learning representations by back-propagating errors. Nature, 323, 533-536.",
-    tree = "Breiman, L., Friedman, J., Stone, C. J., & Olshen, R. A. (1984). Classification and regression trees. CRC Press.",
-    nb = "Hand, D. J., & Yu, K. (2001). Idiot's Bayes: Not so stupid after all? International Statistical Review, 69(3), 385-398.",
+    rf = "Breiman, L. (2001). Random forests. Machine Learning, 45(1), 5-32. https://doi.org/10.1023/A:1010933404324",
+    xgboost = "Chen, T., & Guestrin, C. (2016). XGBoost: A scalable tree boosting system. In Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (pp. 785-794). ACM. https://doi.org/10.1145/2939672.2939785",
+    glm = "Nelder, J. A., & Wedderburn, R. W. M. (1972). Generalized linear models. Journal of the Royal Statistical Society: Series A (General), 135(3), 370-384. https://doi.org/10.2307/2344614",
+    svm = "Cortes, C., & Vapnik, V. (1995). Support-vector networks. Machine Learning, 20(3), 273-297. https://doi.org/10.1007/BF00994018",
+    nnet = "Rumelhart, D. E., Hinton, G. E., & Williams, R. J. (1986). Learning representations by back-propagating errors. Nature, 323(6088), 533-536. https://doi.org/10.1038/323533a0",
+    tree = "Breiman, L., Friedman, J. H., Olshen, R. A., & Stone, C. J. (1984). Classification and regression trees. CRC Press. https://doi.org/10.1201/9781315139470",
+    nb = "Hand, D. J., & Yu, K. (2001). Idiot's Bayes: Not so stupid after all? International Statistical Review, 69(3), 385-398. https://doi.org/10.1111/j.1751-5823.2001.tb00465.x",
 
     # Tuning
-    grid_search = "Bergstra, J., & Bengio, Y. (2012). Random search for hyper-parameter optimization. JMLR, 13, 281-305.",
-    random_search = "Bergstra, J., & Bengio, Y. (2012). Random search for hyper-parameter optimization. JMLR, 13, 281-305.",
-    bayes_opt = "Snoek, J., Larochelle, H., & Adams, R. P. (2012). Practical Bayesian optimization. NeurIPS, 25, 2951-2959.",
-    racing = "Maron, O., & Moore, A. W. (1997). The racing algorithm: Model selection for lazy learners. Artificial Intelligence Review, 11, 193-225.",
+    grid_search = "Bergstra, J., & Bengio, Y. (2012). Random search for hyper-parameter optimization. Journal of Machine Learning Research, 13(10), 281-305.",
+    random_search = "Bergstra, J., & Bengio, Y. (2012). Random search for hyper-parameter optimization. Journal of Machine Learning Research, 13(10), 281-305.",
+    bayes_opt = "Snoek, J., Larochelle, H., & Adams, R. P. (2012). Practical Bayesian optimization of machine learning algorithms. In Advances in Neural Information Processing Systems (Vol. 25, pp. 2951-2959). Curran Associates.",
+    racing = "Maron, O., & Moore, A. W. (1997). The racing algorithm: Model selection for lazy learners. Artificial Intelligence Review, 11(1-5), 193-225. https://doi.org/10.1023/A:1006556606079",
 
     # Metricas de Evaluacion
-    roc_auc = "Hanley, J. A., & McNeil, B. J. (1982). The meaning and use of the area under a ROC curve. Radiology, 143(1), 29-36.",
-    confusion_matrix = "Fawcett, T. (2006). An introduction to ROC analysis. Pattern Recognition Letters, 27(8), 861-874.",
+    roc_auc = "Hanley, J. A., & McNeil, B. J. (1982). The meaning and use of the area under a receiver operating characteristic (ROC) curve. Radiology, 143(1), 29-36. https://doi.org/10.1148/radiology.143.1.7063747",
+    confusion_matrix = "Fawcett, T. (2006). An introduction to ROC analysis. Pattern Recognition Letters, 27(8), 861-874. https://doi.org/10.1016/j.patrec.2005.10.010",
     f1_score = "Van Rijsbergen, C. J. (1979). Information retrieval (2nd ed.). Butterworth-Heinemann.",
-    rmse = "Chai, T., & Draxler, R. R. (2014). Root mean square error (RMSE) or mean absolute error (MAE)? GMD, 7(3), 1247-1250.",
-    r_squared = "Nagelkerke, N. J. D. (1991). A note on a general definition of the coefficient of determination. Biometrika, 78(3), 691-692.",
-    calibration = "Niculescu-Mizil, A., & Caruana, R. (2005). Predicting good probabilities with supervised learning. ICML, 625-632.",
+    f2_score = "Van Rijsbergen, C. J. (1979). Information retrieval (2nd ed.). Butterworth-Heinemann. | Chinchor, N. (1992). MUC-4 evaluation metrics. In Proceedings of the 4th Conference on Message Understanding (MUC-4) (pp. 22-29). Association for Computational Linguistics. https://doi.org/10.3115/1072064.1072067",
+    mcc = "Matthews, B. W. (1975). Comparison of the predicted and observed secondary structure of T4 phage lysozyme. Biochimica et Biophysica Acta (BBA) - Protein Structure, 405(2), 442-451. https://doi.org/10.1016/0005-2795(75)90109-9 | Chicco, D., & Jurman, G. (2020). The advantages of the Matthews correlation coefficient (MCC) over F1 score and accuracy in binary classification evaluation. BMC Genomics, 21, Article 6. https://doi.org/10.1186/s12864-019-6413-7",
+    rmse = "Chai, T., & Draxler, R. R. (2014). Root mean square error (RMSE) or mean absolute error (MAE)? Arguments against avoiding RMSE in the literature. Geoscientific Model Development, 7(3), 1247-1250. https://doi.org/10.5194/gmd-7-1247-2014",
+    r_squared = "Nagelkerke, N. J. D. (1991). A note on a general definition of the coefficient of determination. Biometrika, 78(3), 691-692. https://doi.org/10.1093/biomet/78.3.691",
+    calibration = "Niculescu-Mizil, A., & Caruana, R. (2005). Predicting good probabilities with supervised learning. In Proceedings of the 22nd International Conference on Machine Learning (ICML) (pp. 625-632). ACM. https://doi.org/10.1145/1102351.1102430",
 
     # Interpretabilidad
-    shap = "Lundberg, S. M., & Lee, S. I. (2017). A unified approach to interpreting model predictions. NeurIPS, 30, 4765-4774.",
-    importance = "Breiman, L. (2001). Random forests. Machine Learning, 45(1), 5-32.",
+    shap = "Lundberg, S. M., & Lee, S.-I. (2017). A unified approach to interpreting model predictions. In Advances in Neural Information Processing Systems (Vol. 30, pp. 4765-4774). Curran Associates.",
+    importance = "Breiman, L. (2001). Random forests. Machine Learning, 45(1), 5-32. https://doi.org/10.1023/A:1010933404324",
 
     # Analisis Avanzado
-    threshold = "Youden, W. J. (1950). Index for rating diagnostic tests. Cancer, 3(1), 32-35.",
-    leakage = "Kaufman, S., Rosset, S., Perlich, C., & Stitelman, O. (2012). Leakage in data mining. ACM TKDD, 6(4), 1-21. | Kapoor, S., & Narayanan, A. (2023). Leakage and the reproducibility crisis in ML-based science. Patterns, 4(9), 100804.",
-    nested_cv = "Varma, S., & Simon, R. (2006). Bias in error estimation when using cross-validation for model selection. BMC Bioinformatics, 7, 91.",
-    residuals = "Cook, R. D., & Weisberg, S. (1982). Residuals and influence in regression. Chapman and Hall."
+    threshold = "Youden, W. J. (1950). Index for rating diagnostic tests. Cancer, 3(1), 32-35. https://doi.org/10.1002/1097-0142(1950)3:1<32::AID-CNCR2820030106>3.0.CO;2-3",
+    leakage = "Kaufman, S., Rosset, S., Perlich, C., & Stitelman, O. (2012). Leakage in data mining: Formulation, detection, and avoidance. ACM Transactions on Knowledge Discovery from Data, 6(4), Article 15, 1-21. https://doi.org/10.1145/2382577.2382579 | Kapoor, S., & Narayanan, A. (2023). Leakage and the reproducibility crisis in machine-learning-based science. Patterns, 4(9), 100804. https://doi.org/10.1016/j.patter.2023.100804",
+    nested_cv = "Varma, S., & Simon, R. (2006). Bias in error estimation when using cross-validation for model selection. BMC Bioinformatics, 7, Article 91. https://doi.org/10.1186/1471-2105-7-91",
+    residuals = "Cook, R. D., & Weisberg, S. (1982). Residuals and influence in regression. Chapman and Hall.",
+
+    # Frameworks y Herramientas
+    tidy_modeling = "Kuhn, M., & Silge, J. (2022). Tidy modeling with R: A framework for modeling in the tidyverse. O'Reilly Media. https://www.tmwr.org/"
   )
 
   if (ref_key %in% names(references)) {

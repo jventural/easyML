@@ -9,8 +9,8 @@ prep_recipe(
   target,
   task,
   impute = TRUE,
-  impute_method = c("median", "mean", "knn"),
-  normalize = TRUE,
+  impute_method = c("knn", "median", "mean"),
+  normalize = FALSE,
   normalize_method = c("zscore", "minmax"),
   use_pca = FALSE,
   pca_threshold = 0.95,
@@ -22,6 +22,9 @@ prep_recipe(
   cor_threshold = 0.9,
   remove_high_vif = TRUE,
   vif_threshold = 5,
+  group_rare = TRUE,
+  other_threshold = 0.05,
+  remove_zv = TRUE,
   verbose = TRUE
 )
 }

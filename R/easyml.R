@@ -17,8 +17,9 @@
 #' @param test_split Proporcion de datos para test (default: 0.20).
 #' @param cv_folds Numero de folds para validacion cruzada (default: 10).
 #' @param select_metric Metrica para seleccionar el mejor modelo. Para clasificacion:
-#'   "roc_auc" (default), "f_meas" (F1), "accuracy", "sensitivity", "specificity",
-#'   "bal_accuracy" (Balanced Accuracy), "pr_auc" (Precision-Recall AUC).
+#'   "roc_auc" (default), "f_meas" (F1), "f2_meas" (F2, prioriza recall),
+#'   "accuracy", "sensitivity", "specificity", "bal_accuracy" (Balanced Accuracy),
+#'   "pr_auc" (Precision-Recall AUC), "mcc" (Matthews Correlation Coefficient).
 #'   Para regresion: "rmse" (default), "rsq", "mae".
 #' @param tune_best Realizar tuning del mejor modelo (default: TRUE).
 #' @param tune_method Metodo de busqueda de hiperparametros: "random" (Random Search),
@@ -307,8 +308,8 @@ easy_ml <- function(data,
   if (is.null(select_metric)) {
     select_metric <- if (task == "classification") "roc_auc" else "rmse"
   } else {
-    valid_class_metrics <- c("roc_auc", "f_meas", "accuracy", "sensitivity",
-                              "specificity", "bal_accuracy", "pr_auc")
+    valid_class_metrics <- c("roc_auc", "f_meas", "f2_meas", "accuracy", "sensitivity",
+                              "specificity", "bal_accuracy", "pr_auc", "mcc")
     valid_reg_metrics <- c("rmse", "rsq", "mae")
 
     if (task == "classification" && !select_metric %in% valid_class_metrics) {

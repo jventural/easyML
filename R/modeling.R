@@ -160,6 +160,9 @@ fit_models_cv <- function(model_specs, recipe, cv_folds, task, verbose = TRUE) {
 
   # Definir metricas
   if (task == "classification") {
+    # F2-Score: F-beta con beta=2 (prioriza recall sobre precision)
+    f2_meas <- yardstick::metric_tweak("f2_meas", yardstick::f_meas, beta = 2)
+
     metrics_set <- yardstick::metric_set(
       yardstick::roc_auc,
       yardstick::accuracy,
@@ -167,7 +170,9 @@ fit_models_cv <- function(model_specs, recipe, cv_folds, task, verbose = TRUE) {
       yardstick::specificity,
       yardstick::f_meas,
       yardstick::bal_accuracy,
-      yardstick::pr_auc
+      yardstick::pr_auc,
+      yardstick::mcc,
+      f2_meas
     )
   } else {
     metrics_set <- yardstick::metric_set(
@@ -230,11 +235,13 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
   metric_labels <- c(
     roc_auc = "ROC-AUC",
     f_meas = "F1-Score",
+    f2_meas = "F2-Score",
     accuracy = "Accuracy",
     sensitivity = "Sensitivity",
     specificity = "Specificity",
     bal_accuracy = "Balanced Accuracy",
     pr_auc = "PR-AUC",
+    mcc = "MCC",
     rmse = "RMSE",
     rsq = "R-squared",
     mae = "MAE"
@@ -244,19 +251,21 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
   metric_descriptions <- c(
     roc_auc = "Buena para desbalance moderado, evalua discriminacion global",
     f_meas = "Balance entre precision y recall, buena para desbalance",
+    f2_meas = "Como F1 pero prioriza recall (detectar positivos), ideal cuando perder un positivo es costoso",
     accuracy = "Simple pero sensible al desbalance de clases",
     sensitivity = "Prioriza detectar todos los positivos (recall)",
     specificity = "Prioriza evitar falsos positivos",
     bal_accuracy = "Promedio de sensitivity y specificity",
     pr_auc = "Ideal para desbalance severo (clases muy desiguales)",
+    mcc = "Correlacion entre prediccion y realidad, robusto a desbalance (-1 a 1)",
     rmse = "Penaliza errores grandes, en unidades originales",
     rsq = "Proporcion de varianza explicada (0-1)",
     mae = "Error promedio absoluto, robusto a outliers"
   )
 
   # Metricas que se maximizan vs minimizan
-  maximize_metrics <- c("roc_auc", "f_meas", "accuracy", "sensitivity",
-                        "specificity", "bal_accuracy", "pr_auc", "rsq")
+  maximize_metrics <- c("roc_auc", "f_meas", "f2_meas", "accuracy", "sensitivity",
+                        "specificity", "bal_accuracy", "pr_auc", "mcc", "rsq")
 
   # Recopilar metricas de todos los modelos
   all_metrics <- lapply(names(cv_results), function(model_name) {
@@ -292,13 +301,15 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
     # Mostrar leyenda de metricas
     cat("\n    Leyenda de metricas:\n")
     if (task == "classification") {
-      cat("      - accuracy:    Proporcion de predicciones correctas\n")
+      cat("      - accuracy:     Proporcion de predicciones correctas\n")
       cat("      - bal_accuracy: Promedio de sensitivity y specificity\n")
-      cat("      - f_meas:      F1-Score, balance entre precision y recall\n")
-      cat("      - pr_auc:      Area bajo curva Precision-Recall\n")
-      cat("      - roc_auc:     Area bajo curva ROC\n")
-      cat("      - sensitivity: Tasa de verdaderos positivos (recall)\n")
-      cat("      - specificity: Tasa de verdaderos negativos\n")
+      cat("      - f_meas:       F1-Score, balance entre precision y recall\n")
+      cat("      - f2_meas:      F2-Score, como F1 pero prioriza recall\n")
+      cat("      - mcc:          Matthews Correlation Coefficient (-1 a 1)\n")
+      cat("      - pr_auc:       Area bajo curva Precision-Recall\n")
+      cat("      - roc_auc:      Area bajo curva ROC\n")
+      cat("      - sensitivity:  Tasa de verdaderos positivos (recall)\n")
+      cat("      - specificity:  Tasa de verdaderos negativos\n")
     } else {
       cat("      - rmse: Error cuadratico medio (penaliza errores grandes)\n")
       cat("      - rsq:  R-cuadrado, proporcion de varianza explicada\n")
@@ -388,6 +399,27 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
     if (value >= 0.70) return(paste0("Aceptable: el modelo acierta en ", pct, "% de los casos"))
     if (value >= 0.60) return(paste0("Moderado: el modelo acierta en ", pct, "% de los casos"))
     return(paste0("Bajo: el modelo solo acierta en ", pct, "% de los casos"))
+  }
+
+  # MCC: correlacion entre prediccion y realidad (-1 a 1)
+  if (metric == "mcc") {
+    if (value >= 0.99) return("[!] ADVERTENCIA: Valor sospechosamente alto (posible overfitting o data leakage). Revise los datos.")
+    if (value >= 0.70) return("Excelente: alta correlacion entre predicciones y valores reales")
+    if (value >= 0.50) return("Bueno: buena correlacion entre predicciones y valores reales")
+    if (value >= 0.30) return("Aceptable: correlacion moderada entre predicciones y valores reales")
+    if (value >= 0.10) return("Debil: baja correlacion entre predicciones y valores reales")
+    if (value >= 0) return("Muy debil: el modelo apenas supera al azar")
+    return("Negativo: el modelo predice peor que el azar (predicciones inversas)")
+  }
+
+  # F2-Score: como F1 pero prioriza recall (detectar positivos)
+  if (metric == "f2_meas") {
+    if (value >= 0.99) return("[!] ADVERTENCIA: Valor sospechosamente alto (posible overfitting o data leakage). Revise los datos.")
+    if (value >= 0.90) return("Excelente: detecta casi todos los positivos con buena precision")
+    if (value >= 0.80) return("Bueno: buena deteccion de positivos con precision razonable")
+    if (value >= 0.70) return("Aceptable: detecta la mayoria de positivos pero con algunos errores")
+    if (value >= 0.60) return("Moderado: pierde algunos positivos o tiene errores frecuentes")
+    return("Bajo: pierde muchos positivos o comete demasiados errores")
   }
 
   # F1-Score: equilibrio entre encontrar todos los positivos y no equivocarse

@@ -261,6 +261,9 @@ eval_metrics <- function(predictions, target, task, verbose = TRUE) {
       cat("      - Clase negativa:", event_info$negative_class, "\n\n")
     }
 
+    # F2-Score: F-beta con beta=2 (prioriza recall sobre precision)
+    f2_meas <- yardstick::metric_tweak("f2_meas", yardstick::f_meas, beta = 2)
+
     metrics <- dplyr::bind_rows(
       yardstick::roc_auc(predictions, truth = !!rlang::sym(target),
                          !!rlang::sym(event_info$prob_col),
@@ -275,7 +278,12 @@ eval_metrics <- function(predictions, target, task, verbose = TRUE) {
                              event_level = event_info$event_level),
       yardstick::f_meas(predictions, truth = !!rlang::sym(target),
                         estimate = .pred_class,
-                        event_level = event_info$event_level)
+                        event_level = event_info$event_level),
+      yardstick::mcc(predictions, truth = !!rlang::sym(target),
+                     estimate = .pred_class),
+      f2_meas(predictions, truth = !!rlang::sym(target),
+              estimate = .pred_class,
+              event_level = event_info$event_level)
     )
   } else {
     metrics <- dplyr::bind_rows(
@@ -306,7 +314,9 @@ eval_metrics <- function(predictions, target, task, verbose = TRUE) {
       cat("      - accuracy: Porcentaje de predicciones correctas\n")
       cat("      - sensitivity: Porcentaje de positivos detectados correctamente\n")
       cat("      - specificity: Porcentaje de negativos detectados correctamente\n")
-      cat("      - f_meas: Balance entre precision y sensibilidad\n")
+      cat("      - f_meas: Balance entre precision y sensibilidad (F1)\n")
+      cat("      - mcc: Correlacion prediccion-realidad, robusto a desbalance (-1 a 1)\n")
+      cat("      - f2_meas: Como F1 pero prioriza detectar positivos (F2)\n")
     } else {
       cat("\n    Leyenda rapida:\n")
       cat("      - rmse: Error promedio (penaliza errores grandes)\n")

@@ -13,8 +13,8 @@ preprocess_data(
   balance_classes = FALSE,
   balance_method = c("smote", "adasyn", "rose", "up", "down"),
   impute = TRUE,
-  impute_method = c("median", "mean", "knn"),
-  normalize = TRUE,
+  impute_method = c("knn", "median", "mean"),
+  normalize = FALSE,
   normalize_method = c("zscore", "minmax"),
   use_pca = FALSE,
   pca_threshold = 0.95,
@@ -24,6 +24,9 @@ preprocess_data(
   cor_threshold = 0.9,
   remove_high_vif = TRUE,
   vif_threshold = 5,
+  group_rare = TRUE,
+  other_threshold = 0.05,
+  remove_zv = TRUE,
   seed = 2024,
   verbose = TRUE
 )
@@ -56,6 +59,12 @@ preprocess_data(
 \item{remove_high_vif}{Eliminar variables con alto VIF (default: TRUE)}
 
 \item{vif_threshold}{Umbral de VIF para eliminar (default: 5)}
+
+\item{group_rare}{Agrupar categorias raras con step_other (default: TRUE)}
+
+\item{other_threshold}{Umbral minimo de proporcion para agrupar (default: 0.05)}
+
+\item{remove_zv}{Eliminar variables con varianza cero (default: TRUE)}
 
 \item{seed}{Semilla}
 
