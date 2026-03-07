@@ -227,6 +227,7 @@ auto_feature_engineering <- function(data, target, verbose = TRUE) {
     cat("          familia_total = \"SibSp + Parch\",\n")
     cat("          bmi_cat = \"ifelse(mass > 30, 1, 0)\"\n")
     cat("        ))\n\n")
+    .print_reference("feature_engineering")
   }
 
   list(

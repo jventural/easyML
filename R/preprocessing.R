@@ -22,6 +22,9 @@
 #' @param cor_threshold Umbral de correlacion para eliminar (default: 0.90)
 #' @param remove_high_vif Eliminar variables con alto VIF (default: TRUE)
 #' @param vif_threshold Umbral de VIF para eliminar (default: 5)
+#' @param group_rare Agrupar categorias raras con step_other (default: TRUE)
+#' @param other_threshold Umbral minimo de proporcion para agrupar (default: 0.05)
+#' @param remove_zv Eliminar variables con varianza cero (default: TRUE)
 #' @param seed Semilla
 #' @param verbose Mostrar progreso
 #'
@@ -36,7 +39,7 @@ preprocess_data <- function(data,
                             balance_method = c("smote", "adasyn", "rose", "up", "down"),
                             impute = TRUE,
                             impute_method = c("knn", "median", "mean"),
-                            normalize = TRUE,
+                            normalize = FALSE,
                             normalize_method = c("zscore", "minmax"),
                             use_pca = FALSE,
                             pca_threshold = 0.95,
@@ -46,6 +49,9 @@ preprocess_data <- function(data,
                             cor_threshold = 0.90,
                             remove_high_vif = TRUE,
                             vif_threshold = 5,
+                            group_rare = TRUE,
+                            other_threshold = 0.05,
+                            remove_zv = TRUE,
                             seed = 2024,
                             verbose = TRUE) {
 
@@ -115,6 +121,9 @@ preprocess_data <- function(data,
     cor_threshold = cor_threshold,
     remove_high_vif = remove_high_vif,
     vif_threshold = vif_threshold,
+    group_rare = group_rare,
+    other_threshold = other_threshold,
+    remove_zv = remove_zv,
     verbose = verbose
   )
   if (verbose) .print_reference("normalization")
@@ -162,12 +171,9 @@ prep_target <- function(data, target, task, verbose = TRUE) {
 prep_split <- function(data, target, task, test_split = 0.20, seed = 2024, verbose = TRUE) {
   set.seed(seed)
 
-  if (task == "classification") {
-    data_split <- rsample::initial_split(data, prop = 1 - test_split,
-                                         strata = !!rlang::sym(target))
-  } else {
-    data_split <- rsample::initial_split(data, prop = 1 - test_split)
-  }
+  # Estratificar siempre: por clase (clasificacion) o por cuartiles (regresion)
+  data_split <- rsample::initial_split(data, prop = 1 - test_split,
+                                       strata = !!rlang::sym(target))
 
   train_data <- rsample::training(data_split)
   test_data <- rsample::testing(data_split)
@@ -245,7 +251,7 @@ prep_feature_selection <- function(data, target, seed = 2024, verbose = TRUE) {
 #' @export
 prep_recipe <- function(data, target, task, impute = TRUE,
                         impute_method = c("knn", "median", "mean"),
-                        normalize = TRUE,
+                        normalize = FALSE,
                         normalize_method = c("zscore", "minmax"),
                         use_pca = FALSE, pca_threshold = 0.95,
                         balance_classes = FALSE,
@@ -253,7 +259,10 @@ prep_recipe <- function(data, target, task, impute = TRUE,
                         treat_outliers = TRUE,
                         outlier_percentile = 0.05, remove_high_cor = TRUE,
                         cor_threshold = 0.90, remove_high_vif = TRUE,
-                        vif_threshold = 5, verbose = TRUE) {
+                        vif_threshold = 5,
+                        group_rare = TRUE, other_threshold = 0.05,
+                        remove_zv = TRUE,
+                        verbose = TRUE) {
 
   impute_method <- match.arg(impute_method)
   normalize_method <- match.arg(normalize_method)
@@ -377,12 +386,26 @@ prep_recipe <- function(data, target, task, impute = TRUE,
     }
   }
 
-  # 5. Dummies para variables categoricas
+  # 5. Agrupar categorias raras
+  if (group_rare) {
+    rec <- rec |>
+      recipes::step_other(recipes::all_nominal_predictors(), threshold = other_threshold)
+    steps_applied <- c(steps_applied, "Agrupacion de categorias raras")
+  }
+
+  # 6. Dummies para variables categoricas
   rec <- rec |>
     recipes::step_dummy(recipes::all_nominal_predictors(), one_hot = FALSE)
   steps_applied <- c(steps_applied, "Dummy encoding")
 
-  # 6. Normalizacion
+  # 7. Remover varianza cero
+  if (remove_zv) {
+    rec <- rec |>
+      recipes::step_zv(recipes::all_predictors())
+    steps_applied <- c(steps_applied, "Remover varianza cero")
+  }
+
+  # 8. Normalizacion
   if (normalize) {
     if (normalize_method == "zscore") {
       rec <- rec |>
@@ -395,14 +418,14 @@ prep_recipe <- function(data, target, task, impute = TRUE,
     }
   }
 
-  # 6.5 PCA (opcional, despues de normalizacion)
+  # 9. PCA (opcional, despues de normalizacion)
   if (use_pca) {
     rec <- rec |>
       recipes::step_pca(recipes::all_numeric_predictors(), threshold = pca_threshold)
     steps_applied <- c(steps_applied, paste0("PCA (threshold = ", pca_threshold, ")"))
   }
 
-  # 7. Balanceo de clases para clasificacion desbalanceada
+  # 10. Balanceo de clases para clasificacion desbalanceada
   if (balance_classes && task == "classification") {
     if (requireNamespace("themis", quietly = TRUE)) {
       rec <- switch(balance_method,
@@ -436,7 +459,9 @@ prep_recipe <- function(data, target, task, impute = TRUE,
                                               outlier_percentile * 100, "-", (1 - outlier_percentile) * 100),
         "Eliminacion por alta correlacion" = paste0("Elimina variables con |r| > ", cor_threshold),
         "Eliminacion por alto VIF" = paste0("Elimina variables con VIF > ", vif_threshold),
+        "Agrupacion de categorias raras" = paste0("Agrupa niveles con < ", other_threshold * 100, "% en 'other'"),
         "Dummy encoding" = "Convierte categorias a variables binarias (0/1)",
+        "Remover varianza cero" = "Elimina variables constantes (un solo valor)",
         "Normalizacion (z-score)" = "Estandariza a media=0 y desviacion estandar=1",
         "Normalizacion (Min-Max [0,1])" = "Escala cada variable al rango [0, 1]",
         "SMOTE (balanceo)" = "Genera casos sinteticos para balancear clases (SMOTE)",
@@ -455,6 +480,12 @@ prep_recipe <- function(data, target, task, impute = TRUE,
         cat("        ", desc, "\n")
       }
     }
+
+    # Referencia para imputacion
+    if (impute) .print_reference("imputation")
+
+    # Referencia para balanceo
+    if (balance_classes) .print_reference("smote")
 
     # Mostrar detalles de tratamientos aplicados
     cat("\n    Tratamientos automaticos:\n")

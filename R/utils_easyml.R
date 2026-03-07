@@ -82,17 +82,19 @@
     vif = "O'Brien, R. M. (2007). A caution regarding rules of thumb for variance inflation factors. Quality & Quantity, 41(5), 673-690. | Chan, J. Y.-L. et al. (2022). Mitigating the multicollinearity problem and its machine learning approach: A review. Mathematics, 10(8), 1283.",
 
     # Preprocesamiento
-    train_test = "Hastie, T., Tibshirani, R., & Friedman, J. (2009). The elements of statistical learning (2nd ed.). Springer.",
-    cv = "Kohavi, R. (1995). A study of cross-validation and bootstrap for accuracy estimation. IJCAI, 14(2), 1137-1145.",
+    train_test = "Hastie, T., Tibshirani, R., & Friedman, J. (2009). The elements of statistical learning (2nd ed.). Springer. | Gholamy, A., Kreinovich, V., & Kosheleva, O. (2018). Why 70/30 or 80/20 relation between training and testing sets. IJITAS, 11(2), 105-111. | James, G., Witten, D., Hastie, T., & Tibshirani, R. (2021). An introduction to statistical learning (2nd ed.). Springer.",
+    cv = "Kohavi, R. (1995). A study of cross-validation and bootstrap for accuracy estimation. IJCAI, 14(2), 1137-1145. | Raschka, S. (2020). Model evaluation, model selection, and algorithm selection in machine learning. arXiv:1811.12808v3.",
     stratified_cv = "Kohavi, R. (1995). A study of cross-validation and bootstrap for accuracy estimation. IJCAI, 14(2), 1137-1145.",
-    normalization = "Hastie, T., Tibshirani, R., & Friedman, J. (2009). The elements of statistical learning (2nd ed.). Springer.",
-    smote = "Chawla, N. V., Bowyer, K. W., Hall, L. O., & Kegelmeyer, W. P. (2002). SMOTE: Synthetic minority over-sampling technique. JAIR, 16, 321-357.",
+    normalization = "Raschka, S. (2020). Model evaluation, model selection, and algorithm selection in machine learning. arXiv:1811.12808v3. | Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. Springer. https://doi.org/10.1007/978-1-4614-6849-3",
+    smote = "Chawla, N. V., Bowyer, K. W., Hall, L. O., & Kegelmeyer, W. P. (2002). SMOTE: Synthetic minority over-sampling technique. JAIR, 16, 321-357. | He, H., & Garcia, E. A. (2009). Learning from imbalanced data. IEEE TKDE, 21(9), 1263-1284.",
     boruta = "Kursa, M. B., & Rudnicki, W. R. (2010). Feature selection with the Boruta package. Journal of Statistical Software, 36(11), 1-13.",
+    imputation = "Li, J., et al. (2024). Comparison of imputation methods for missing data in predictive modelling. BMC Med Res Methodol, 24, 41. | Kapoor, S., & Narayanan, A. (2023). Leakage and the reproducibility crisis in ML-based science. Patterns, 4(9), 100804.",
+    feature_engineering = "Zheng, A., & Casari, A. (2018). Feature engineering for machine learning. O'Reilly Media. | Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. Springer.",
 
     # Tratamiento de Outliers y Multicolinealidad
-    winsorization = "Dixon, W. J. (1960). Simplified estimation from censored normal samples. The Annals of Mathematical Statistics, 31(2), 385-391.",
+    winsorization = "Theriault, R., et al. (2024). Check your outliers! An introduction to identifying statistical outliers in R. Behavior Research Methods, 56, 4162-4172. https://doi.org/10.3758/s13428-024-02356-w",
     correlation_removal = "Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. Springer. https://doi.org/10.1007/978-1-4614-6849-3",
-    vif_removal = "Chan, J. Y.-L., Leow, S. M. H., Bea, K. T., Cheng, W. K., Phoong, S. W., Hong, Z.-W., & Chen, Y.-L. (2022). Mitigating the multicollinearity problem and its machine learning approach: A review. Mathematics, 10(8), 1283. https://doi.org/10.3390/math10081283",
+    vif_removal = "O'Brien, R. M. (2007). A caution regarding rules of thumb for variance inflation factors. Quality & Quantity, 41(5), 673-690. | Chan, J. Y.-L., et al. (2022). Mitigating the multicollinearity problem and its machine learning approach: A review. Mathematics, 10(8), 1283.",
 
     # Interacciones y Splines
     interactions = "Aiken, L. S., & West, S. G. (1991). Multiple regression: Testing and interpreting interactions. Sage Publications.",
@@ -127,7 +129,7 @@
 
     # Analisis Avanzado
     threshold = "Youden, W. J. (1950). Index for rating diagnostic tests. Cancer, 3(1), 32-35.",
-    leakage = "Kaufman, S., Rosset, S., Perlich, C., & Stitelman, O. (2012). Leakage in data mining. ACM TKDD, 6(4), 1-21.",
+    leakage = "Kaufman, S., Rosset, S., Perlich, C., & Stitelman, O. (2012). Leakage in data mining. ACM TKDD, 6(4), 1-21. | Kapoor, S., & Narayanan, A. (2023). Leakage and the reproducibility crisis in ML-based science. Patterns, 4(9), 100804.",
     nested_cv = "Varma, S., & Simon, R. (2006). Bias in error estimation when using cross-validation for model selection. BMC Bioinformatics, 7, 91.",
     residuals = "Cook, R. D., & Weisberg, S. (1982). Residuals and influence in regression. Chapman and Hall."
   )

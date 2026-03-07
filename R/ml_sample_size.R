@@ -176,6 +176,9 @@ ml_sample_size <- function(data = NULL,
 
   # Get or simulate data
   if (is.null(data)) {
+    if (task == "regression" && !is.null(sim_params$prevalence)) {
+      warning("'prevalence' is ignored for regression. It only applies to classification.")
+    }
     if (verbose) message("Simulating population data...")
     pop_data <- .simulate_population(
       task = task,
