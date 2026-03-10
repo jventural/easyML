@@ -115,9 +115,15 @@ ui <- dashboardPage(
             box(
               title = tagList(icon("crosshairs"), "Target Variable"),
               status = "info", solidHeader = TRUE, width = NULL,
-              uiOutput("data_target_ui"),
+              uiOutput("data_target_ui")
+            ),
+            box(
+              title = tagList(icon("check-square"), "Predictors"),
+              status = "warning", solidHeader = TRUE, width = NULL,
+              collapsible = TRUE, collapsed = TRUE,
+              uiOutput("data_predictors_ui"),
               div(class = "info-text",
-                "Select the target variable for ML and Sample Size analyses."
+                "Uncheck variables to exclude from all analyses."
               )
             )
           ),
@@ -144,13 +150,6 @@ ui <- dashboardPage(
         fluidRow(
           # --- Panel izquierdo: configuracion ---
           column(4,
-            box(
-              title = tagList(icon("crosshairs"), "Variables"),
-              status = "primary", solidHeader = TRUE, width = NULL,
-              uiOutput("ml_target_ui"),
-              uiOutput("ml_predictors_ui")
-            ),
-
             box(
               title = tagList(icon("sliders-h"), "Configuration"),
               status = "info", solidHeader = TRUE, width = NULL,
@@ -675,6 +674,14 @@ server <- function(input, output, session) {
                 selected = NULL)
   })
 
+  output$data_predictors_ui <- renderUI({
+    req(rv$raw_data, input$data_target)
+    all_vars <- setdiff(names(rv$raw_data), input$data_target)
+    checkboxGroupInput("data_predictors", "Predictors (uncheck to exclude):",
+                       choices = all_vars,
+                       selected = all_vars)
+  })
+
   output$data_preview_table <- DT::renderDataTable({
     req(rv$raw_data)
     DT::datatable(utils::head(rv$raw_data, 100),
@@ -691,24 +698,6 @@ server <- function(input, output, session) {
   # ===================================================================
   # TAB 1: Pipeline ML - Server Logic
   # ===================================================================
-
-  # ---- Dynamic target/predictor selectors ----
-  output$ml_target_ui <- renderUI({
-    req(rv$raw_data)
-    # Pre-select target from Data tab if available
-    sel <- if (!is.null(input$data_target)) input$data_target else NULL
-    selectInput("ml_target", "Target variable:",
-                choices = names(rv$raw_data),
-                selected = sel)
-  })
-
-  output$ml_predictors_ui <- renderUI({
-    req(rv$raw_data, input$ml_target)
-    all_vars <- setdiff(names(rv$raw_data), input$ml_target)
-    checkboxGroupInput("ml_predictors", "Predictors (uncheck to exclude):",
-                       choices = all_vars,
-                       selected = all_vars)
-  })
 
   # ---- Dynamic metric selector based on task type ----
   output$ml_metric_ui <- renderUI({
@@ -736,11 +725,11 @@ server <- function(input, output, session) {
       showNotification("Please upload a data file first.", type = "warning")
       return()
     }
-    if (is.null(input$ml_target) || !nzchar(input$ml_target)) {
+    if (is.null(input$data_target) || !nzchar(input$data_target)) {
       showNotification("Please select a target variable.", type = "warning")
       return()
     }
-    if (is.null(input$ml_predictors) || length(input$ml_predictors) == 0) {
+    if (is.null(input$data_predictors) || length(input$data_predictors) == 0) {
       showNotification("Please select at least one predictor.", type = "warning")
       return()
     }
@@ -750,11 +739,11 @@ server <- function(input, output, session) {
     }
 
     # Subset data to selected predictors + target
-    sel_cols <- c(input$ml_predictors, input$ml_target)
+    sel_cols <- c(input$data_predictors, input$data_target)
     data_subset <- rv$raw_data[, sel_cols, drop = FALSE]
 
     # --- Pre-clean: remove high-cardinality & ID-like columns ---
-    target_col <- input$ml_target
+    target_col <- input$data_target
     predictor_cols <- setdiff(names(data_subset), target_col)
     dropped_cols <- c()
 
@@ -802,7 +791,7 @@ server <- function(input, output, session) {
       tryCatch({
         result <- easyML::easy_ml(
             data                = data_subset,
-            target              = input$ml_target,
+            target              = input$data_target,
             task                = input$ml_task,
             models              = input$ml_models,
             test_split          = input$ml_test_split,
@@ -1145,6 +1134,37 @@ server <- function(input, output, session) {
           } else {
             names(rv$raw_data)[ncol(rv$raw_data)]
           }
+
+          # Pre-clean: remove ID-like, high-cardinality, and constant columns
+          pred_cols <- setdiff(names(use_data), target_var)
+          drop_cols <- c()
+          for (col in pred_cols) {
+            vals <- use_data[[col]]
+            n_uniq <- length(unique(na.omit(vals)))
+            n_rows <- nrow(use_data)
+            # Drop ID-like or high-cardinality text columns
+            if (is.character(vals) || is.factor(vals)) {
+              if (n_uniq > 50 || n_uniq > 0.5 * n_rows) {
+                drop_cols <- c(drop_cols, col)
+              }
+            }
+            # Drop constant columns
+            if (n_uniq <= 1) {
+              drop_cols <- c(drop_cols, col)
+            }
+          }
+          if (length(drop_cols) > 0) {
+            use_data <- use_data[, !names(use_data) %in% drop_cols, drop = FALSE]
+            showNotification(
+              paste0("Auto-removed columns: ", paste(drop_cols, collapse = ", ")),
+              type = "warning", duration = 8)
+          }
+
+          # Ensure target is factor for classification
+          if (input$ss_task == "classification") {
+            use_data[[target_var]] <- as.factor(use_data[[target_var]])
+          }
+
           use_formula <- as.formula(paste(target_var, "~ ."))
         }
 
