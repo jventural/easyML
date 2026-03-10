@@ -85,6 +85,9 @@ ui <- dashboardPage(
         .skin-black .main-header .navbar {
           background: linear-gradient(135deg, #312e81 0%, #3730a3 100%);
         }
+        .skin-black .main-header .navbar .sidebar-toggle {
+          color: #ffffff;
+        }
         .skin-black .main-header .navbar .sidebar-toggle:hover {
           background-color: rgba(255,255,255,0.1);
         }
