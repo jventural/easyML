@@ -36,6 +36,8 @@ ui <- dashboardPage(
     width = 250,
     sidebarMenu(
       id = "tabs",
+      menuItem("Data", tabName = "tab_data",
+               icon = icon("database")),
       menuItem("Sample Size", tabName = "tab_ss",
                icon = icon("chart-area")),
       menuItem("Pipeline ML", tabName = "tab_ml",
@@ -98,6 +100,44 @@ ui <- dashboardPage(
     tabItems(
 
       # =====================================================================
+      # TAB 0: Data Upload (Shared)
+      # =====================================================================
+      tabItem(tabName = "tab_data",
+        fluidRow(
+          column(4,
+            box(
+              title = tagList(icon("upload"), "Upload Data"),
+              status = "primary", solidHeader = TRUE, width = NULL,
+              fileInput("data_file", "Upload CSV or Excel:",
+                        accept = c(".csv", ".xlsx", ".xls")),
+              uiOutput("data_info_ui")
+            ),
+            box(
+              title = tagList(icon("crosshairs"), "Target Variable"),
+              status = "info", solidHeader = TRUE, width = NULL,
+              uiOutput("data_target_ui"),
+              div(class = "info-text",
+                "Select the target variable for ML and Sample Size analyses."
+              )
+            )
+          ),
+          column(8,
+            box(
+              title = tagList(icon("table"), "Data Preview"),
+              status = "success", solidHeader = TRUE, width = NULL,
+              DT::dataTableOutput("data_preview_table")
+            ),
+            box(
+              title = tagList(icon("info-circle"), "Data Summary"),
+              status = "info", solidHeader = TRUE, width = NULL,
+              collapsible = TRUE, collapsed = TRUE,
+              verbatimTextOutput("data_summary")
+            )
+          )
+        )
+      ),
+
+      # =====================================================================
       # TAB 1: Pipeline ML
       # =====================================================================
       tabItem(tabName = "tab_ml",
@@ -105,10 +145,8 @@ ui <- dashboardPage(
           # --- Panel izquierdo: configuracion ---
           column(4,
             box(
-              title = tagList(icon("database"), "Data"),
+              title = tagList(icon("crosshairs"), "Variables"),
               status = "primary", solidHeader = TRUE, width = NULL,
-              fileInput("ml_file", "Upload CSV or Excel:",
-                        accept = c(".csv", ".xlsx", ".xls")),
               uiOutput("ml_target_ui"),
               uiOutput("ml_predictors_ui")
             ),
@@ -349,14 +387,6 @@ ui <- dashboardPage(
           # --- Panel izquierdo: configuracion ---
           column(4,
             box(
-              title = tagList(icon("database"), "Data"),
-              status = "primary", solidHeader = TRUE, width = NULL,
-              fileInput("ss_file", "Upload CSV or Excel:",
-                        accept = c(".csv", ".xlsx", ".xls")),
-              uiOutput("ss_data_info")
-            ),
-
-            box(
               title = tagList(icon("flask"), "Simulation Settings"),
               status = "primary", solidHeader = TRUE, width = NULL,
 
@@ -403,10 +433,9 @@ ui <- dashboardPage(
               ),
 
               radioButtons("ss_data_source", NULL,
-                           choices = c("Use uploaded data" = "from_upload",
-                                       "Simulate data" = "simulate",
-                                       "Use data from Pipeline ML" = "from_ml"),
-                           selected = "from_upload"),
+                           choices = c("Use uploaded data (Data tab)" = "from_data",
+                                       "Simulate data" = "simulate"),
+                           selected = "from_data"),
 
               conditionalPanel(
                 condition = "input.ss_data_source == 'simulate'",
@@ -581,8 +610,7 @@ server <- function(input, output, session) {
 
   # --- Shared reactive values ---
   rv <- reactiveValues(
-    raw_data     = NULL,   # data.frame loaded in Pipeline ML tab
-    ss_data      = NULL,   # data.frame loaded in Sample Size tab
+    raw_data     = NULL,   # data.frame loaded in Data tab (shared)
     ml_result    = NULL,   # easyml object from Pipeline ML
     ml_verbose   = NULL,   # verbose text
     ml_json_data = NULL,   # JSON structure from result
@@ -594,23 +622,23 @@ server <- function(input, output, session) {
 
 
   # ===================================================================
-  # TAB 1: Pipeline ML - Server Logic
+  # TAB 0: Shared Data Upload - Server Logic
   # ===================================================================
 
-  # ---- Load data ----
-  observeEvent(input$ml_file, {
-    req(input$ml_file)
-    ext <- tools::file_ext(input$ml_file$name)
+  # ---- Load data (shared across all tabs) ----
+  observeEvent(input$data_file, {
+    req(input$data_file)
+    ext <- tools::file_ext(input$data_file$name)
     tryCatch({
       if (ext == "csv") {
-        rv$raw_data <- read.csv(input$ml_file$datapath, stringsAsFactors = FALSE)
+        rv$raw_data <- read.csv(input$data_file$datapath, stringsAsFactors = FALSE)
       } else if (ext %in% c("xlsx", "xls")) {
         if (!requireNamespace("readxl", quietly = TRUE)) {
           showNotification("Package 'readxl' required for Excel files.",
                            type = "error")
           return()
         }
-        rv$raw_data <- readxl::read_excel(input$ml_file$datapath)
+        rv$raw_data <- readxl::read_excel(input$data_file$datapath)
         rv$raw_data <- as.data.frame(rv$raw_data)
       } else {
         showNotification("Unsupported file format. Use CSV or Excel.",
@@ -626,12 +654,52 @@ server <- function(input, output, session) {
     })
   })
 
+  # ---- Data tab UI outputs ----
+  output$data_info_ui <- renderUI({
+    if (!is.null(rv$raw_data)) {
+      div(style = "color: #27ae60; font-size: 13px; font-weight: bold;",
+        icon("check-circle"),
+        paste0(" ", nrow(rv$raw_data), " rows x ", ncol(rv$raw_data), " columns")
+      )
+    } else {
+      div(style = "color: #95a5a6; font-size: 12px;",
+        "Upload a CSV or Excel file to begin."
+      )
+    }
+  })
+
+  output$data_target_ui <- renderUI({
+    req(rv$raw_data)
+    selectInput("data_target", "Target variable:",
+                choices = names(rv$raw_data),
+                selected = NULL)
+  })
+
+  output$data_preview_table <- DT::renderDataTable({
+    req(rv$raw_data)
+    DT::datatable(utils::head(rv$raw_data, 100),
+                  options = list(scrollX = TRUE, pageLength = 10),
+                  rownames = FALSE)
+  })
+
+  output$data_summary <- renderPrint({
+    req(rv$raw_data)
+    str(rv$raw_data)
+  })
+
+
+  # ===================================================================
+  # TAB 1: Pipeline ML - Server Logic
+  # ===================================================================
+
   # ---- Dynamic target/predictor selectors ----
   output$ml_target_ui <- renderUI({
     req(rv$raw_data)
+    # Pre-select target from Data tab if available
+    sel <- if (!is.null(input$data_target)) input$data_target else NULL
     selectInput("ml_target", "Target variable:",
                 choices = names(rv$raw_data),
-                selected = NULL)
+                selected = sel)
   })
 
   output$ml_predictors_ui <- renderUI({
@@ -1026,46 +1094,6 @@ server <- function(input, output, session) {
   # TAB 2: Sample Size Estimation - Server Logic
   # ===================================================================
 
-  # ---- Load data for Sample Size ----
-  observeEvent(input$ss_file, {
-    req(input$ss_file)
-    ext <- tools::file_ext(input$ss_file$name)
-    tryCatch({
-      if (ext == "csv") {
-        rv$ss_data <- read.csv(input$ss_file$datapath, stringsAsFactors = FALSE)
-      } else if (ext %in% c("xlsx", "xls")) {
-        if (!requireNamespace("readxl", quietly = TRUE)) {
-          showNotification("Package 'readxl' required for Excel files.",
-                           type = "error")
-          return()
-        }
-        rv$ss_data <- as.data.frame(readxl::read_excel(input$ss_file$datapath))
-      } else {
-        showNotification("Unsupported format. Use CSV or Excel.", type = "error")
-        return()
-      }
-      showNotification(
-        paste0("Data loaded: ", nrow(rv$ss_data), " rows x ",
-               ncol(rv$ss_data), " columns"),
-        type = "message", duration = 4)
-    }, error = function(e) {
-      showNotification(paste("Error loading file:", e$message), type = "error")
-    })
-  })
-
-  output$ss_data_info <- renderUI({
-    if (!is.null(rv$ss_data)) {
-      div(style = "color: #27ae60; font-size: 12px;",
-        icon("check-circle"),
-        paste0(" ", nrow(rv$ss_data), " rows x ", ncol(rv$ss_data), " cols")
-      )
-    } else {
-      div(style = "color: #95a5a6; font-size: 12px;",
-        "No data loaded. Upload a file or use simulated data."
-      )
-    }
-  })
-
   # ---- Dynamic metric selector ----
   output$ss_metric_ui <- renderUI({
     if (input$ss_task == "classification") {
@@ -1110,14 +1138,12 @@ server <- function(input, output, session) {
         use_data <- NULL
         use_formula <- NULL
 
-        if (input$ss_data_source == "from_upload" && !is.null(rv$ss_data)) {
-          use_data <- rv$ss_data
-          target_var <- names(rv$ss_data)[ncol(rv$ss_data)]
-          use_formula <- as.formula(paste(target_var, "~ ."))
-        } else if (input$ss_data_source == "from_ml" && !is.null(rv$raw_data)) {
+        if (input$ss_data_source == "from_data" && !is.null(rv$raw_data)) {
           use_data <- rv$raw_data
-          target_var <- if (!is.null(rv$ml_result)) rv$ml_result$target else {
-            if (!is.null(input$ml_target)) input$ml_target else names(rv$raw_data)[ncol(rv$raw_data)]
+          target_var <- if (!is.null(input$data_target)) {
+            input$data_target
+          } else {
+            names(rv$raw_data)[ncol(rv$raw_data)]
           }
           use_formula <- as.formula(paste(target_var, "~ ."))
         }
