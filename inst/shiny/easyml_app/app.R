@@ -36,17 +36,16 @@ ui <- dashboardPage(
     width = 250,
     sidebarMenu(
       id = "tabs",
-      menuItem("Pipeline ML", tabName = "tab_ml",
-               icon = icon("cogs")),
       menuItem("Sample Size", tabName = "tab_ss",
                icon = icon("chart-area")),
+      menuItem("Pipeline ML", tabName = "tab_ml",
+               icon = icon("cogs")),
       menuItem("AI Report", tabName = "tab_report",
                icon = icon("file-alt"))
     ),
     hr(),
     div(style = "padding: 10px; color: #b8c7ce; font-size: 11px;",
-      p("easyML v2.0.0"),
-      p("Integrated ML Workbench")
+      p("easyML v1.0.0")
     )
   ),
 
@@ -350,6 +349,14 @@ ui <- dashboardPage(
           # --- Panel izquierdo: configuracion ---
           column(4,
             box(
+              title = tagList(icon("database"), "Data"),
+              status = "primary", solidHeader = TRUE, width = NULL,
+              fileInput("ss_file", "Upload CSV or Excel:",
+                        accept = c(".csv", ".xlsx", ".xls")),
+              uiOutput("ss_data_info")
+            ),
+
+            box(
               title = tagList(icon("flask"), "Simulation Settings"),
               status = "primary", solidHeader = TRUE, width = NULL,
 
@@ -396,9 +403,10 @@ ui <- dashboardPage(
               ),
 
               radioButtons("ss_data_source", NULL,
-                           choices = c("Simulate data" = "simulate",
-                                       "Use data from Tab 1" = "from_ml"),
-                           selected = "simulate"),
+                           choices = c("Use uploaded data" = "from_upload",
+                                       "Simulate data" = "simulate",
+                                       "Use data from Pipeline ML" = "from_ml"),
+                           selected = "from_upload"),
 
               conditionalPanel(
                 condition = "input.ss_data_source == 'simulate'",
@@ -573,8 +581,9 @@ server <- function(input, output, session) {
 
   # --- Shared reactive values ---
   rv <- reactiveValues(
-    raw_data     = NULL,   # data.frame loaded in Tab 1
-    ml_result    = NULL,   # easyml object from Tab 1
+    raw_data     = NULL,   # data.frame loaded in Pipeline ML tab
+    ss_data      = NULL,   # data.frame loaded in Sample Size tab
+    ml_result    = NULL,   # easyml object from Pipeline ML
     ml_verbose   = NULL,   # verbose text
     ml_json_data = NULL,   # JSON structure from result
     ss_result    = NULL,   # ml_sample_size result
@@ -1017,6 +1026,46 @@ server <- function(input, output, session) {
   # TAB 2: Sample Size Estimation - Server Logic
   # ===================================================================
 
+  # ---- Load data for Sample Size ----
+  observeEvent(input$ss_file, {
+    req(input$ss_file)
+    ext <- tools::file_ext(input$ss_file$name)
+    tryCatch({
+      if (ext == "csv") {
+        rv$ss_data <- read.csv(input$ss_file$datapath, stringsAsFactors = FALSE)
+      } else if (ext %in% c("xlsx", "xls")) {
+        if (!requireNamespace("readxl", quietly = TRUE)) {
+          showNotification("Package 'readxl' required for Excel files.",
+                           type = "error")
+          return()
+        }
+        rv$ss_data <- as.data.frame(readxl::read_excel(input$ss_file$datapath))
+      } else {
+        showNotification("Unsupported format. Use CSV or Excel.", type = "error")
+        return()
+      }
+      showNotification(
+        paste0("Data loaded: ", nrow(rv$ss_data), " rows x ",
+               ncol(rv$ss_data), " columns"),
+        type = "message", duration = 4)
+    }, error = function(e) {
+      showNotification(paste("Error loading file:", e$message), type = "error")
+    })
+  })
+
+  output$ss_data_info <- renderUI({
+    if (!is.null(rv$ss_data)) {
+      div(style = "color: #27ae60; font-size: 12px;",
+        icon("check-circle"),
+        paste0(" ", nrow(rv$ss_data), " rows x ", ncol(rv$ss_data), " cols")
+      )
+    } else {
+      div(style = "color: #95a5a6; font-size: 12px;",
+        "No data loaded. Upload a file or use simulated data."
+      )
+    }
+  })
+
   # ---- Dynamic metric selector ----
   output$ss_metric_ui <- renderUI({
     if (input$ss_task == "classification") {
@@ -1061,7 +1110,11 @@ server <- function(input, output, session) {
         use_data <- NULL
         use_formula <- NULL
 
-        if (input$ss_data_source == "from_ml" && !is.null(rv$raw_data)) {
+        if (input$ss_data_source == "from_upload" && !is.null(rv$ss_data)) {
+          use_data <- rv$ss_data
+          target_var <- names(rv$ss_data)[ncol(rv$ss_data)]
+          use_formula <- as.formula(paste(target_var, "~ ."))
+        } else if (input$ss_data_source == "from_ml" && !is.null(rv$raw_data)) {
           use_data <- rv$raw_data
           target_var <- if (!is.null(rv$ml_result)) rv$ml_result$target else {
             if (!is.null(input$ml_target)) input$ml_target else names(rv$raw_data)[ncol(rv$raw_data)]
