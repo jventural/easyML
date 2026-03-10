@@ -46,7 +46,7 @@ ui <- dashboardPage(
                icon = icon("file-alt"))
     ),
     hr(),
-    div(style = "padding: 10px; color: #45a29e; font-size: 11px;",
+    div(style = "padding: 10px; color: #d0d5e0; font-size: 11px;",
       p("easyML v1.0.0")
     )
   ),
@@ -59,7 +59,8 @@ ui <- dashboardPage(
       ),
       tags$style(HTML("
         /* ============================================================
-           easyML — Obsidian Noir Theme
+           easyML — Oxford Ink Theme
+           Flat, academic, print-ready. No gradients.
            ============================================================ */
 
         /* --- Typography --- */
@@ -69,103 +70,80 @@ ui <- dashboardPage(
 
         /* --- Content area --- */
         .content-wrapper {
-          background-color: #f4f5f7;
+          background-color: #f2f3f5;
         }
 
         /* --- Header --- */
         .skin-black .main-header .logo {
-          background: linear-gradient(135deg, #0b0c10 0%, #1f2833 100%);
+          background-color: #1b2a4a;
           font-weight: 700;
           letter-spacing: 0.5px;
-          color: #66fcf1;
+          color: #ffffff;
         }
         .skin-black .main-header .logo:hover {
-          background: linear-gradient(135deg, #1f2833 0%, #2a3040 100%);
+          background-color: #243b6a;
         }
         .skin-black .main-header .navbar {
-          background: linear-gradient(135deg, #1f2833 0%, #2a3040 100%);
+          background-color: #243b6a;
         }
         .skin-black .main-header .navbar .sidebar-toggle {
           color: #ffffff;
         }
         .skin-black .main-header .navbar .sidebar-toggle:hover {
-          background-color: rgba(102, 252, 241, 0.1);
+          background-color: rgba(255,255,255,0.1);
         }
 
         /* --- Sidebar --- */
         .skin-black .main-sidebar,
         .skin-black .left-side {
-          background-color: #0b0c10;
+          background-color: #1b2a4a;
         }
         .skin-black .sidebar-menu > li > a {
-          color: #c5c6c7;
+          color: #d0d5e0;
           border-left: 3px solid transparent;
-          transition: all 0.2s ease;
+          transition: all 0.15s ease;
         }
         .skin-black .sidebar-menu > li > a:hover {
-          background-color: rgba(102, 252, 241, 0.08);
-          border-left: 3px solid #45a29e;
-          color: #66fcf1;
+          background-color: rgba(255, 255, 255, 0.07);
+          border-left: 3px solid #d0d5e0;
+          color: #ffffff;
         }
         .skin-black .sidebar-menu > li.active > a {
-          background-color: rgba(102, 252, 241, 0.12);
-          border-left: 3px solid #66fcf1;
-          color: #66fcf1;
+          background-color: rgba(255, 255, 255, 0.1);
+          border-left: 3px solid #ffffff;
+          color: #ffffff;
           font-weight: 600;
         }
         .skin-black .sidebar-menu > li > .treeview-menu {
-          background-color: #07080b;
+          background-color: #162240;
         }
-        .skin-black .sidebar a { color: #c5c6c7; }
+        .skin-black .sidebar a { color: #d0d5e0; }
 
-        /* --- Box overrides --- */
+        /* --- Box overrides (uniform neutral style) --- */
         .box {
-          border-radius: 12px;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-          border-top: none;
+          border-radius: 6px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+          border-top: 2px solid #d0d4dc;
           background-color: #ffffff;
         }
-        .box.box-solid.box-primary {
-          border-top: 3px solid #45a29e;
-        }
-        .box.box-solid.box-primary > .box-header {
-          background: #1f2833;
-          border-radius: 12px 12px 0 0;
-          color: #c5c6c7;
-        }
-        .box.box-solid.box-primary > .box-body {
-          background-color: #ffffff;
-        }
-        .box.box-solid.box-success {
-          border-top: 3px solid #10b981;
-        }
-        .box.box-solid.box-success > .box-header {
-          background: #1f2833;
-          border-radius: 12px 12px 0 0;
-          color: #10b981;
-        }
-        .box.box-solid.box-success > .box-body {
-          background-color: #ffffff;
-        }
-        .box.box-solid.box-info {
-          border-top: 3px solid #388bfd;
-        }
-        .box.box-solid.box-info > .box-header {
-          background: #1f2833;
-          border-radius: 12px 12px 0 0;
-          color: #388bfd;
-        }
-        .box.box-solid.box-info > .box-body {
-          background-color: #ffffff;
-        }
+        .box.box-solid.box-primary,
+        .box.box-solid.box-success,
+        .box.box-solid.box-info,
         .box.box-solid.box-warning {
-          border-top: 3px solid #e3b341;
+          border-top: 2px solid #d0d4dc;
         }
+        .box.box-solid.box-primary > .box-header,
+        .box.box-solid.box-success > .box-header,
+        .box.box-solid.box-info > .box-header,
         .box.box-solid.box-warning > .box-header {
-          background: #1f2833;
-          border-radius: 12px 12px 0 0;
-          color: #e3b341;
+          background-color: #f7f8fa;
+          border-radius: 6px 6px 0 0;
+          color: #1b2a4a;
+          border-bottom: 1px solid #e8e9ed;
         }
+        .box.box-solid.box-primary > .box-body,
+        .box.box-solid.box-success > .box-body,
+        .box.box-solid.box-info > .box-body,
         .box.box-solid.box-warning > .box-body {
           background-color: #ffffff;
         }
@@ -174,99 +152,97 @@ ui <- dashboardPage(
         }
         .box-header .box-title {
           font-weight: 600;
+          color: #1b2a4a;
         }
-        /* Collapse toggle icon color */
         .box.box-solid > .box-header > .box-tools .btn {
-          color: #c5c6c7;
+          color: #6b7280;
         }
         .box-body {
           padding: 15px 20px;
-          color: #1f2833;
+          color: #333333;
         }
 
         /* --- Run buttons --- */
         .btn-run {
-          width: 100%; font-weight: 700; border-radius: 12px;
+          width: 100%; font-weight: 700; border-radius: 6px;
           margin-top: 10px; margin-bottom: 10px; font-size: 15px; padding: 12px;
           border: none;
-          background: linear-gradient(135deg, #45a29e 0%, #66fcf1 100%);
-          color: #0b0c10;
-          box-shadow: 0 4px 14px rgba(69, 162, 158, 0.35);
-          transition: all 0.25s ease;
+          background-color: #1b2a4a;
+          color: #ffffff;
+          transition: all 0.15s ease;
           letter-spacing: 0.3px;
         }
         .btn-run:hover {
-          background: linear-gradient(135deg, #3b8d89 0%, #45a29e 100%);
-          box-shadow: 0 6px 20px rgba(69, 162, 158, 0.5);
-          transform: translateY(-1px);
-          color: #0b0c10;
+          background-color: #243b6a;
+          color: #ffffff;
         }
         .btn-run:active {
-          transform: translateY(0);
+          background-color: #162240;
         }
 
         /* --- General buttons --- */
         .btn-primary {
-          background: linear-gradient(135deg, #45a29e 0%, #66fcf1 100%);
+          background-color: #1b2a4a;
           border: none;
-          color: #0b0c10;
-          box-shadow: 0 2px 8px rgba(69, 162, 158, 0.25);
+          color: #ffffff;
         }
         .btn-primary:hover {
-          background: linear-gradient(135deg, #3b8d89 0%, #45a29e 100%);
-          color: #0b0c10;
+          background-color: #243b6a;
+          color: #ffffff;
         }
         .btn-warning {
-          background: linear-gradient(135deg, #d29922 0%, #e3b341 100%);
+          background-color: #1b2a4a;
           border: none;
-          color: #0b0c10;
-          box-shadow: 0 2px 8px rgba(227, 179, 65, 0.25);
+          color: #ffffff;
         }
         .btn-warning:hover {
-          background: linear-gradient(135deg, #b8841d 0%, #d29922 100%);
-          color: #0b0c10;
+          background-color: #243b6a;
+          color: #ffffff;
         }
         .btn-success {
-          background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+          background-color: #1b2a4a;
           border: none;
+          color: #ffffff;
+        }
+        .btn-success:hover {
+          background-color: #243b6a;
+          color: #ffffff;
         }
         .btn-default {
-          border-radius: 12px;
-          border: 1px solid #d1d5db;
-          transition: all 0.2s ease;
+          border-radius: 6px;
+          border: 1px solid #d0d4dc;
+          color: #1b2a4a;
+          transition: all 0.15s ease;
         }
         .btn-default:hover {
-          background-color: #f4f5f7;
-          border-color: #45a29e;
-          color: #1f2833;
+          background-color: #f7f8fa;
+          border-color: #1b2a4a;
         }
 
         /* --- Verbose terminal --- */
         .verbose-output {
           max-height: 500px; overflow-y: auto; font-size: 12px;
-          background: #0b0c10; color: #66fcf1; padding: 18px; border-radius: 10px;
+          background: #fafafa; color: #333333; padding: 18px; border-radius: 6px;
           font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
           white-space: pre-wrap;
-          border: 1px solid #1f2833;
+          border: 1px solid #e0e0e0;
         }
 
         /* --- Metric cards --- */
         .metric-card {
           text-align: center; padding: 16px 12px;
-          background: linear-gradient(135deg, #1f2833 0%, #0b0c10 100%);
-          color: white; border-radius: 14px; margin: 5px; display: inline-block;
+          background-color: #1b2a4a;
+          color: white; border-radius: 6px; margin: 5px; display: inline-block;
           width: 45%;
-          box-shadow: 0 4px 14px rgba(11, 12, 16, 0.4);
-          border: 1px solid #45a29e;
         }
-        .metric-value { font-size: 26px; font-weight: 700; color: #66fcf1; }
-        .metric-label { font-size: 11px; color: #c5c6c7; letter-spacing: 0.3px; }
+        .metric-value { font-size: 26px; font-weight: 700; color: #ffffff; }
+        .metric-label { font-size: 11px; color: #d0d5e0; letter-spacing: 0.3px; }
 
         /* --- Report preview --- */
         .report-preview {
-          background: #ffffff; padding: 24px; border-radius: 10px;
+          background: #ffffff; padding: 24px; border-radius: 6px;
           max-height: 600px; overflow-y: auto;
-          border: 1px solid #e5e7eb;
+          border: 1px solid #e0e0e0;
         }
 
         /* --- Info text --- */
@@ -274,90 +250,88 @@ ui <- dashboardPage(
 
         /* --- Section headers --- */
         .section-header {
-          background: #1f2833;
-          padding: 10px 15px; border-radius: 10px; color: #66fcf1; margin-bottom: 15px;
-          border-left: 3px solid #45a29e;
+          background-color: #1b2a4a;
+          padding: 10px 15px; border-radius: 6px; color: #ffffff; margin-bottom: 15px;
         }
         .section-header h4 { margin: 0; font-weight: 600; }
 
         /* --- Recommendation card --- */
         .ss-recommendation {
-          background: #ecfdf5; border-left: 4px solid #10b981;
-          padding: 15px; border-radius: 0 10px 10px 0; margin: 10px 0;
+          background: #f7f8fa; border-left: 4px solid #1b2a4a;
+          padding: 15px; border-radius: 0 6px 6px 0; margin: 10px 0;
         }
 
         /* --- AI response card --- */
         .ai-response {
-          background: #fefce8; border-left: 4px solid #e3b341;
-          padding: 15px; border-radius: 0 10px 10px 0; margin: 10px 0;
+          background: #f7f8fa; border-left: 4px solid #1b2a4a;
+          padding: 15px; border-radius: 0 6px 6px 0; margin: 10px 0;
           font-size: 14px; line-height: 1.7; white-space: pre-wrap;
         }
 
         /* --- Form inputs --- */
         .form-control {
-          border-radius: 8px;
-          border: 1px solid #d1d5db;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          border-radius: 4px;
+          border: 1px solid #d0d4dc;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
         .form-control:focus {
-          border-color: #45a29e;
-          box-shadow: 0 0 0 3px rgba(102, 252, 241, 0.15);
+          border-color: #1b2a4a;
+          box-shadow: 0 0 0 2px rgba(27, 42, 74, 0.1);
         }
 
         /* --- Select inputs --- */
         .selectize-input {
-          border-radius: 8px !important;
-          border: 1px solid #d1d5db !important;
+          border-radius: 4px !important;
+          border: 1px solid #d0d4dc !important;
         }
         .selectize-input.focus {
-          border-color: #45a29e !important;
-          box-shadow: 0 0 0 3px rgba(102, 252, 241, 0.15) !important;
+          border-color: #1b2a4a !important;
+          box-shadow: 0 0 0 2px rgba(27, 42, 74, 0.1) !important;
         }
 
         /* --- Slider accent --- */
         .irs--shiny .irs-bar {
-          background: #45a29e;
-          border-top: 1px solid #3b8d89;
-          border-bottom: 1px solid #3b8d89;
+          background: #1b2a4a;
+          border-top: 1px solid #1b2a4a;
+          border-bottom: 1px solid #1b2a4a;
         }
         .irs--shiny .irs-from, .irs--shiny .irs-to,
         .irs--shiny .irs-single {
-          background-color: #1f2833;
-          color: #66fcf1;
+          background-color: #1b2a4a;
         }
         .irs--shiny .irs-handle {
-          border: 2px solid #45a29e;
+          border: 2px solid #1b2a4a;
           background: #ffffff;
         }
 
         /* --- Checkbox accent --- */
         .checkbox input[type='checkbox']:checked + span::before,
         .icheckbox_square-blue.checked {
-          border-color: #45a29e;
+          border-color: #1b2a4a;
         }
 
         /* --- DataTables --- */
         .dataTables_wrapper .dataTables_paginate .paginate_button.current {
-          background: #1f2833 !important;
-          color: #66fcf1 !important;
+          background: #1b2a4a !important;
+          color: #ffffff !important;
           border: none !important;
-          border-radius: 6px;
+          border-radius: 4px;
         }
         .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
-          background: #e5e7eb !important;
-          color: #1f2833 !important;
+          background: #f7f8fa !important;
+          color: #1b2a4a !important;
           border: none !important;
         }
         table.dataTable thead th {
-          background-color: #1f2833;
+          background-color: #f7f8fa;
           font-weight: 600;
-          color: #c5c6c7;
-          border-bottom: 2px solid #45a29e;
+          color: #1b2a4a;
+          border-bottom: 2px solid #d0d4dc;
         }
 
         /* --- Notification badges --- */
         .skin-black .main-header .navbar .nav > li > a {
-          color: #c5c6c7;
+          color: #d0d5e0;
         }
 
         /* --- Scrollbar styling --- */
@@ -370,26 +344,26 @@ ui <- dashboardPage(
           background: transparent;
         }
         .verbose-output::-webkit-scrollbar-thumb {
-          background: #45a29e;
+          background: #d0d4dc;
           border-radius: 3px;
         }
         .report-preview::-webkit-scrollbar-thumb {
-          background: #c5c6c7;
+          background: #d0d4dc;
           border-radius: 3px;
         }
 
         /* --- Sub-section headers in Advanced Options --- */
         .box-body h5 {
-          color: #45a29e;
+          color: #1b2a4a;
           margin-top: 5px;
         }
         .box-body hr {
-          border-top: 1px solid #e5e7eb;
+          border-top: 1px solid #e8e9ed;
         }
 
         /* --- Download buttons row --- */
         .btn-primary[id*='download'] {
-          border-radius: 12px;
+          border-radius: 6px;
         }
       "))
     ),
@@ -804,7 +778,7 @@ ui <- dashboardPage(
               div(style = "text-align: center; margin-bottom: 10px;",
                 tags$a(href = "https://platform.openai.com/api-keys",
                        target = "_blank",
-                       style = "color: #45a29e; font-size: 12px;",
+                       style = "color: #1b2a4a; font-size: 12px;",
                        icon("external-link-alt"), " Get API Key")
               ),
               selectInput("report_model", "Model:",
@@ -959,7 +933,7 @@ server <- function(input, output, session) {
   # ---- Data tab UI outputs ----
   output$data_info_ui <- renderUI({
     if (!is.null(rv$raw_data)) {
-      div(style = "color: #10b981; font-size: 13px; font-weight: 600;",
+      div(style = "color: #1b2a4a; font-size: 13px; font-weight: 600;",
         icon("check-circle"),
         paste0(" ", nrow(rv$raw_data), " rows x ", ncol(rv$raw_data), " columns")
       )
@@ -1383,7 +1357,7 @@ server <- function(input, output, session) {
         if (isTRUE(ai_result$success)) {
           div(class = "ai-response", ai_result$text)
         } else {
-          div(style = "color: #ef4444; padding: 10px;",
+          div(style = "color: #c0392b; padding: 10px;",
             icon("exclamation-triangle"),
             ai_result$text
           )
@@ -1674,12 +1648,12 @@ server <- function(input, output, session) {
   output$report_source_status <- renderUI({
     data <- report_data()
     if (is.null(data)) {
-      div(style = "color: #ef4444; font-size: 12px; margin-top: 5px;",
+      div(style = "color: #c0392b; font-size: 12px; margin-top: 5px;",
         icon("times-circle"), " No data available"
       )
     } else {
       task <- if (!is.null(data$metadata$task)) data$metadata$task else "N/A"
-      div(style = "color: #10b981; font-size: 12px; margin-top: 5px;",
+      div(style = "color: #1b2a4a; font-size: 12px; margin-top: 5px;",
         icon("check-circle"), paste(" Data ready | Task:", task)
       )
     }
