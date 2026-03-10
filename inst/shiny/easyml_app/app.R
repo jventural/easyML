@@ -344,7 +344,13 @@ ui <- dashboardPage(
               status = "primary", solidHeader = TRUE, width = NULL,
               collapsible = TRUE, collapsed = TRUE,
               div(class = "verbose-output",
-                  verbatimTextOutput("ml_verbose"))
+                  verbatimTextOutput("ml_verbose")),
+              div(style = "margin-top: 10px;",
+                downloadButton("ml_download_txt",
+                               tagList(icon("file-alt"), " Download TXT"),
+                               class = "btn-default",
+                               style = "width: 100%; border-radius: 20px;")
+              )
             ),
 
             # Plots
@@ -992,6 +998,17 @@ server <- function(input, output, session) {
     req(rv$ml_verbose)
     rv$ml_verbose
   })
+
+  # ---- Download Verbose TXT ----
+  output$ml_download_txt <- downloadHandler(
+    filename = function() {
+      paste0("easyML_Verbose_", format(Sys.Date(), "%Y%m%d"), ".txt")
+    },
+    content = function(file) {
+      req(rv$ml_verbose)
+      writeLines(rv$ml_verbose, file)
+    }
+  )
 
   # ---- ML Plots ----
   # Plots are in result$figures (shortcut to result$plots$plots)
