@@ -25,7 +25,7 @@ library(DT)
 # =============================================================================
 
 ui <- dashboardPage(
-  skin = "blue",
+  skin = "black",
 
   dashboardHeader(
     title = span(icon("brain"), " easyML"),
@@ -46,53 +46,320 @@ ui <- dashboardPage(
                icon = icon("file-alt"))
     ),
     hr(),
-    div(style = "padding: 10px; color: #b8c7ce; font-size: 11px;",
+    div(style = "padding: 10px; color: #a5b4fc; font-size: 11px;",
       p("easyML v1.0.0")
     )
   ),
 
   dashboardBody(
     tags$head(
+      tags$link(
+        href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
+        rel = "stylesheet"
+      ),
       tags$style(HTML("
-        .content-wrapper { background-color: #f4f6f9; }
-        .skin-blue .main-header .logo { background-color: #2c3e50; font-weight: bold; }
-        .skin-blue .main-header .navbar { background-color: #34495e; }
-        .box-header { font-weight: bold; }
-        .btn-run {
-          width: 100%; font-weight: bold; border-radius: 25px;
-          margin-top: 10px; margin-bottom: 10px; font-size: 16px; padding: 10px;
+        /* ============================================================
+           easyML — Midnight Indigo Theme
+           ============================================================ */
+
+        /* --- Typography --- */
+        body, .content-wrapper, .main-sidebar, .box {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
+
+        /* --- Content area --- */
+        .content-wrapper {
+          background-color: #f0f1f6;
+        }
+
+        /* --- Header --- */
+        .skin-black .main-header .logo {
+          background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          color: #e0e7ff;
+        }
+        .skin-black .main-header .logo:hover {
+          background: linear-gradient(135deg, #312e81 0%, #3730a3 100%);
+        }
+        .skin-black .main-header .navbar {
+          background: linear-gradient(135deg, #312e81 0%, #3730a3 100%);
+        }
+        .skin-black .main-header .navbar .sidebar-toggle:hover {
+          background-color: rgba(255,255,255,0.1);
+        }
+
+        /* --- Sidebar --- */
+        .skin-black .main-sidebar,
+        .skin-black .left-side {
+          background-color: #1e1b4b;
+        }
+        .skin-black .sidebar-menu > li > a {
+          color: #c7d2fe;
+          border-left: 3px solid transparent;
+          transition: all 0.2s ease;
+        }
+        .skin-black .sidebar-menu > li > a:hover {
+          background-color: rgba(99, 102, 241, 0.15);
+          border-left: 3px solid #818cf8;
+          color: #e0e7ff;
+        }
+        .skin-black .sidebar-menu > li.active > a {
+          background-color: rgba(99, 102, 241, 0.25);
+          border-left: 3px solid #6366f1;
+          color: #ffffff;
+          font-weight: 600;
+        }
+        .skin-black .sidebar-menu > li > .treeview-menu {
+          background-color: #1a1744;
+        }
+        .skin-black .sidebar a { color: #a5b4fc; }
+
+        /* --- Box overrides --- */
+        .box {
+          border-radius: 12px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+          border-top: none;
+        }
+        .box.box-solid.box-primary {
+          border-top: 3px solid #6366f1;
+        }
+        .box.box-solid.box-primary > .box-header {
+          background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+          border-radius: 12px 12px 0 0;
+          color: #ffffff;
+        }
+        .box.box-solid.box-success {
+          border-top: 3px solid #10b981;
+        }
+        .box.box-solid.box-success > .box-header {
+          background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+          border-radius: 12px 12px 0 0;
+          color: #ffffff;
+        }
+        .box.box-solid.box-info {
+          border-top: 3px solid #06b6d4;
+        }
+        .box.box-solid.box-info > .box-header {
+          background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+          border-radius: 12px 12px 0 0;
+          color: #ffffff;
+        }
+        .box.box-solid.box-warning {
+          border-top: 3px solid #f59e0b;
+        }
+        .box.box-solid.box-warning > .box-header {
+          background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+          border-radius: 12px 12px 0 0;
+          color: #ffffff;
+        }
+        .box-header {
+          font-weight: 600;
+        }
+        .box-body {
+          padding: 15px 20px;
+        }
+
+        /* --- Run buttons --- */
+        .btn-run {
+          width: 100%; font-weight: 700; border-radius: 12px;
+          margin-top: 10px; margin-bottom: 10px; font-size: 15px; padding: 12px;
+          border: none;
+          background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+          color: #ffffff;
+          box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+          transition: all 0.25s ease;
+          letter-spacing: 0.3px;
+        }
+        .btn-run:hover {
+          background: linear-gradient(135deg, #047857 0%, #059669 100%);
+          box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+          transform: translateY(-1px);
+          color: #ffffff;
+        }
+        .btn-run:active {
+          transform: translateY(0);
+        }
+
+        /* --- General buttons --- */
+        .btn-primary {
+          background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+          border: none;
+          box-shadow: 0 2px 8px rgba(99,102,241,0.25);
+        }
+        .btn-primary:hover {
+          background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+        }
+        .btn-warning {
+          background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+          border: none;
+          color: #ffffff;
+          box-shadow: 0 2px 8px rgba(245,158,11,0.25);
+        }
+        .btn-warning:hover {
+          background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+          color: #ffffff;
+        }
+        .btn-success {
+          background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+          border: none;
+        }
+        .btn-default {
+          border-radius: 12px;
+          border: 1px solid #d1d5db;
+          transition: all 0.2s ease;
+        }
+        .btn-default:hover {
+          background-color: #f3f4f6;
+          border-color: #9ca3af;
+        }
+
+        /* --- Verbose terminal --- */
         .verbose-output {
           max-height: 500px; overflow-y: auto; font-size: 12px;
-          background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px;
-          font-family: 'Consolas', 'Monaco', monospace; white-space: pre-wrap;
+          background: #0f172a; color: #cbd5e1; padding: 18px; border-radius: 10px;
+          font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+          white-space: pre-wrap;
+          border: 1px solid #1e293b;
         }
+
+        /* --- Metric cards --- */
         .metric-card {
-          text-align: center; padding: 12px;
-          background: linear-gradient(135deg, #2980b9 0%, #2c3e50 100%);
-          color: white; border-radius: 10px; margin: 5px; display: inline-block;
+          text-align: center; padding: 16px 12px;
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+          color: white; border-radius: 14px; margin: 5px; display: inline-block;
           width: 45%;
+          box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
         }
-        .metric-value { font-size: 24px; font-weight: bold; }
-        .metric-label { font-size: 11px; opacity: 0.9; }
+        .metric-value { font-size: 26px; font-weight: 700; }
+        .metric-label { font-size: 11px; opacity: 0.85; letter-spacing: 0.3px; }
+
+        /* --- Report preview --- */
         .report-preview {
-          background: white; padding: 20px; border-radius: 5px;
+          background: #ffffff; padding: 24px; border-radius: 10px;
           max-height: 600px; overflow-y: auto;
+          border: 1px solid #e5e7eb;
         }
-        .info-text { color: #7f8c8d; font-size: 12px; margin-top: 5px; }
+
+        /* --- Info text --- */
+        .info-text { color: #6b7280; font-size: 12px; margin-top: 5px; }
+
+        /* --- Section headers --- */
         .section-header {
-          background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
-          padding: 10px 15px; border-radius: 8px; color: white; margin-bottom: 15px;
+          background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+          padding: 10px 15px; border-radius: 10px; color: white; margin-bottom: 15px;
+          box-shadow: 0 2px 8px rgba(99,102,241,0.2);
         }
-        .section-header h4 { margin: 0; }
+        .section-header h4 { margin: 0; font-weight: 600; }
+
+        /* --- Recommendation card --- */
         .ss-recommendation {
-          background: #d5f5e3; border-left: 4px solid #27ae60;
-          padding: 15px; border-radius: 0 8px 8px 0; margin: 10px 0;
+          background: #ecfdf5; border-left: 4px solid #10b981;
+          padding: 15px; border-radius: 0 10px 10px 0; margin: 10px 0;
         }
+
+        /* --- AI response card --- */
         .ai-response {
-          background: #fefefe; border-left: 4px solid #f39c12;
-          padding: 15px; border-radius: 0 8px 8px 0; margin: 10px 0;
+          background: #fffbeb; border-left: 4px solid #f59e0b;
+          padding: 15px; border-radius: 0 10px 10px 0; margin: 10px 0;
           font-size: 14px; line-height: 1.7; white-space: pre-wrap;
+        }
+
+        /* --- Form inputs --- */
+        .form-control {
+          border-radius: 8px;
+          border: 1px solid #d1d5db;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .form-control:focus {
+          border-color: #6366f1;
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        /* --- Select inputs --- */
+        .selectize-input {
+          border-radius: 8px !important;
+          border: 1px solid #d1d5db !important;
+        }
+        .selectize-input.focus {
+          border-color: #6366f1 !important;
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+        }
+
+        /* --- Slider accent --- */
+        .irs--shiny .irs-bar {
+          background: #6366f1;
+          border-top: 1px solid #4f46e5;
+          border-bottom: 1px solid #4f46e5;
+        }
+        .irs--shiny .irs-from, .irs--shiny .irs-to,
+        .irs--shiny .irs-single {
+          background-color: #4f46e5;
+        }
+        .irs--shiny .irs-handle {
+          border: 2px solid #4f46e5;
+        }
+
+        /* --- Checkbox accent --- */
+        .checkbox input[type='checkbox']:checked + span::before,
+        .icheckbox_square-blue.checked {
+          border-color: #6366f1;
+        }
+
+        /* --- DataTables --- */
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+          background: #6366f1 !important;
+          color: white !important;
+          border: none !important;
+          border-radius: 6px;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+          background: #e0e7ff !important;
+          color: #4f46e5 !important;
+          border: none !important;
+        }
+        table.dataTable thead th {
+          background-color: #f8fafc;
+          font-weight: 600;
+          color: #334155;
+          border-bottom: 2px solid #e2e8f0;
+        }
+
+        /* --- Notification badges --- */
+        .skin-black .main-header .navbar .nav > li > a {
+          color: #e0e7ff;
+        }
+
+        /* --- Scrollbar styling --- */
+        .verbose-output::-webkit-scrollbar,
+        .report-preview::-webkit-scrollbar {
+          width: 6px;
+        }
+        .verbose-output::-webkit-scrollbar-track,
+        .report-preview::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .verbose-output::-webkit-scrollbar-thumb {
+          background: #475569;
+          border-radius: 3px;
+        }
+        .report-preview::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 3px;
+        }
+
+        /* --- Sub-section headers in Advanced Options --- */
+        .box-body h5 {
+          color: #4338ca;
+          margin-top: 5px;
+        }
+        .box-body hr {
+          border-top: 1px solid #e5e7eb;
+        }
+
+        /* --- Download buttons row --- */
+        .btn-primary[id*='download'] {
+          border-radius: 12px;
         }
       "))
     ),
@@ -507,7 +774,7 @@ ui <- dashboardPage(
               div(style = "text-align: center; margin-bottom: 10px;",
                 tags$a(href = "https://platform.openai.com/api-keys",
                        target = "_blank",
-                       style = "color: #2980b9; font-size: 12px;",
+                       style = "color: #6366f1; font-size: 12px;",
                        icon("external-link-alt"), " Get API Key")
               ),
               selectInput("report_model", "Model:",
@@ -662,12 +929,12 @@ server <- function(input, output, session) {
   # ---- Data tab UI outputs ----
   output$data_info_ui <- renderUI({
     if (!is.null(rv$raw_data)) {
-      div(style = "color: #27ae60; font-size: 13px; font-weight: bold;",
+      div(style = "color: #10b981; font-size: 13px; font-weight: 600;",
         icon("check-circle"),
         paste0(" ", nrow(rv$raw_data), " rows x ", ncol(rv$raw_data), " columns")
       )
     } else {
-      div(style = "color: #95a5a6; font-size: 12px;",
+      div(style = "color: #9ca3af; font-size: 12px;",
         "Upload a CSV or Excel file to begin."
       )
     }
@@ -906,7 +1173,7 @@ server <- function(input, output, session) {
     if (is.null(rv$ml_result)) {
       box(
         width = NULL, status = "info",
-        div(style = "text-align: center; padding: 20px; color: #95a5a6;",
+        div(style = "text-align: center; padding: 20px; color: #9ca3af;",
           icon("upload", style = "font-size: 36px;"),
           tags$br(), tags$br(),
           tags$p("Upload a dataset, configure parameters, and click"),
@@ -1023,7 +1290,7 @@ server <- function(input, output, session) {
     # result$figures is the shortcut to the actual ggplot list
     figs <- result$figures
     if (is.null(figs) || length(figs) == 0) {
-      return(tags$p(style = "color: #95a5a6; text-align: center;",
+      return(tags$p(style = "color: #9ca3af; text-align: center;",
                     "No plots available."))
     }
 
@@ -1086,7 +1353,7 @@ server <- function(input, output, session) {
         if (isTRUE(ai_result$success)) {
           div(class = "ai-response", ai_result$text)
         } else {
-          div(style = "color: #e74c3c; padding: 10px;",
+          div(style = "color: #ef4444; padding: 10px;",
             icon("exclamation-triangle"),
             ai_result$text
           )
@@ -1230,7 +1497,7 @@ server <- function(input, output, session) {
     if (is.null(rv$ss_result)) {
       box(
         width = NULL, status = "info",
-        div(style = "text-align: center; padding: 20px; color: #95a5a6;",
+        div(style = "text-align: center; padding: 20px; color: #9ca3af;",
           icon("chart-area", style = "font-size: 36px;"),
           tags$br(), tags$br(),
           tags$p("Configure simulation parameters and click"),
@@ -1377,12 +1644,12 @@ server <- function(input, output, session) {
   output$report_source_status <- renderUI({
     data <- report_data()
     if (is.null(data)) {
-      div(style = "color: #e74c3c; font-size: 12px; margin-top: 5px;",
+      div(style = "color: #ef4444; font-size: 12px; margin-top: 5px;",
         icon("times-circle"), " No data available"
       )
     } else {
       task <- if (!is.null(data$metadata$task)) data$metadata$task else "N/A"
-      div(style = "color: #27ae60; font-size: 12px; margin-top: 5px;",
+      div(style = "color: #10b981; font-size: 12px; margin-top: 5px;",
         icon("check-circle"), paste(" Data ready | Task:", task)
       )
     }
@@ -1392,7 +1659,7 @@ server <- function(input, output, session) {
   output$report_json_info <- renderUI({
     data <- report_data()
     if (is.null(data)) {
-      return(tags$p(style = "color: #95a5a6;", "No data loaded."))
+      return(tags$p(style = "color: #9ca3af;", "No data loaded."))
     }
 
     meta <- data$metadata
@@ -1747,7 +2014,7 @@ server <- function(input, output, session) {
   output$report_preview <- renderUI({
     if (is.null(rv$report_html)) {
       return(div(
-        style = "text-align: center; padding: 50px; color: #95a5a6;",
+        style = "text-align: center; padding: 50px; color: #9ca3af;",
         icon("file-alt", style = "font-size: 48px;"),
         tags$br(), tags$br(),
         tags$p("Select a data source, enter your API key, and click"),
