@@ -125,12 +125,6 @@ ui <- dashboardPage(
                                       "Regression" = "regression"),
                           selected = "auto"),
 
-              sliderInput("ml_test_split", "Test proportion:",
-                          min = 0.10, max = 0.40, value = 0.20, step = 0.05),
-
-              sliderInput("ml_cv_folds", "CV Folds:",
-                          min = 3, max = 20, value = 10, step = 1),
-
               checkboxGroupInput("ml_models", "Algorithms:",
                                  choices = c("Random Forest" = "rf",
                                              "XGBoost" = "xgboost",
@@ -139,7 +133,69 @@ ui <- dashboardPage(
                                              "GLM" = "glm",
                                              "Decision Tree" = "tree"),
                                  selected = c("rf", "xgboost", "svm",
-                                              "nnet", "glm", "tree"))
+                                              "nnet", "glm", "tree")),
+
+              uiOutput("ml_metric_ui"),
+
+              sliderInput("ml_test_split", "Test proportion:",
+                          min = 0.10, max = 0.40, value = 0.20, step = 0.05),
+
+              sliderInput("ml_cv_folds", "CV Folds:",
+                          min = 3, max = 20, value = 10, step = 1)
+            ),
+
+            box(
+              title = tagList(icon("filter"), "Preprocessing"),
+              status = "info", solidHeader = TRUE, width = NULL,
+              collapsible = TRUE, collapsed = TRUE,
+
+              checkboxInput("ml_impute", "Impute missing values", value = TRUE),
+              conditionalPanel(
+                condition = "input.ml_impute == true",
+                selectInput("ml_impute_method", "Imputation method:",
+                            choices = c("KNN" = "knn", "Median" = "median",
+                                        "Mean" = "mean"),
+                            selected = "knn")
+              ),
+
+              checkboxInput("ml_normalize", "Normalize variables", value = TRUE),
+              conditionalPanel(
+                condition = "input.ml_normalize == true",
+                selectInput("ml_normalize_method", "Normalization method:",
+                            choices = c("Z-score" = "zscore", "Min-Max" = "minmax"),
+                            selected = "zscore")
+              ),
+
+              checkboxInput("ml_treat_outliers", "Treat outliers (winsorize)",
+                            value = TRUE),
+              conditionalPanel(
+                condition = "input.ml_treat_outliers == true",
+                numericInput("ml_outlier_percentile", "Outlier percentile:",
+                             value = 0.05, min = 0.01, max = 0.10, step = 0.01)
+              ),
+
+              checkboxInput("ml_remove_high_cor", "Remove high correlation",
+                            value = TRUE),
+              conditionalPanel(
+                condition = "input.ml_remove_high_cor == true",
+                numericInput("ml_cor_threshold", "Correlation threshold:",
+                             value = 0.90, min = 0.50, max = 0.99, step = 0.05)
+              ),
+
+              checkboxInput("ml_remove_high_vif", "Remove high VIF",
+                            value = TRUE),
+              conditionalPanel(
+                condition = "input.ml_remove_high_vif == true",
+                numericInput("ml_vif_threshold", "VIF threshold:",
+                             value = 5, min = 2, max = 20, step = 1)
+              ),
+
+              checkboxInput("ml_use_pca", "Apply PCA", value = FALSE),
+              conditionalPanel(
+                condition = "input.ml_use_pca == true",
+                numericInput("ml_pca_threshold", "PCA variance retention:",
+                             value = 0.95, min = 0.80, max = 0.99, step = 0.01)
+              )
             ),
 
             box(
@@ -147,8 +203,8 @@ ui <- dashboardPage(
               status = "warning", solidHeader = TRUE, width = NULL,
               collapsible = TRUE, collapsed = TRUE,
 
+              tags$h5(tags$strong(icon("magic"), " Tuning")),
               checkboxInput("ml_tune", "Tune best model", value = TRUE),
-
               conditionalPanel(
                 condition = "input.ml_tune == true",
                 selectInput("ml_tune_method", "Tune method:",
@@ -158,27 +214,74 @@ ui <- dashboardPage(
                                         "Racing ANOVA" = "racing"),
                             selected = "random"),
                 numericInput("ml_tune_grid", "Grid size:", value = 20,
-                             min = 5, max = 100)
+                             min = 5, max = 100),
+                conditionalPanel(
+                  condition = "input.ml_tune_method == 'bayes'",
+                  numericInput("ml_tune_iter", "Bayesian iterations:",
+                               value = 30, min = 10, max = 200)
+                )
               ),
 
-              selectInput("ml_balance", "Class balancing:",
-                          choices = c("None" = "none",
-                                      "SMOTE" = "smote",
-                                      "ADASYN" = "adasyn",
-                                      "ROSE" = "rose",
-                                      "Upsample" = "up",
-                                      "Downsample" = "down"),
-                          selected = "none"),
-
-              checkboxInput("ml_feature_eng", "Feature engineering",
+              hr(),
+              tags$h5(tags$strong(icon("cogs"), " Feature Engineering")),
+              checkboxInput("ml_feature_eng", "Auto feature engineering",
                             value = FALSE),
-              checkboxInput("ml_optimize_threshold",
-                            "Optimize threshold", value = TRUE),
-              checkboxInput("ml_nested_cv", "Nested CV", value = FALSE),
-              checkboxInput("ml_run_shap", "Calculate SHAP", value = TRUE),
+              checkboxInput("ml_feature_selection",
+                            "Feature selection (Boruta)", value = FALSE),
 
+              hr(),
+              tags$h5(tags$strong(icon("balance-scale"), " Class Balancing")),
+              checkboxInput("ml_balance_classes", "Balance classes",
+                            value = FALSE),
+              conditionalPanel(
+                condition = "input.ml_balance_classes == true",
+                selectInput("ml_balance_method", "Balance method:",
+                            choices = c("SMOTE" = "smote",
+                                        "ADASYN" = "adasyn",
+                                        "ROSE" = "rose",
+                                        "Upsample" = "up",
+                                        "Downsample" = "down"),
+                            selected = "smote")
+              ),
+
+              hr(),
+              tags$h5(tags$strong(icon("stethoscope"), " Analysis & Diagnostics")),
+              checkboxInput("ml_run_eda", "Run EDA", value = TRUE),
+              checkboxInput("ml_run_shap", "Calculate SHAP", value = TRUE),
+              conditionalPanel(
+                condition = "input.ml_run_shap == true",
+                numericInput("ml_n_shap", "SHAP observations:", value = 100,
+                             min = 10, max = 500, step = 10)
+              ),
+              checkboxInput("ml_optimize_threshold", "Optimize threshold",
+                            value = TRUE),
+              conditionalPanel(
+                condition = "input.ml_optimize_threshold == true",
+                selectInput("ml_threshold_method", "Threshold method:",
+                            choices = c("Youden" = "youden", "F1" = "f1",
+                                        "Balanced" = "balanced"),
+                            selected = "youden")
+              ),
+              checkboxInput("ml_calibrate_probs", "Calibrate probabilities",
+                            value = FALSE),
+              conditionalPanel(
+                condition = "input.ml_calibrate_probs == true",
+                selectInput("ml_calibration_method", "Calibration method:",
+                            choices = c("Platt" = "platt",
+                                        "Isotonic" = "isotonic"),
+                            selected = "platt")
+              ),
+              checkboxInput("ml_check_leakage", "Check data leakage",
+                            value = TRUE),
+              checkboxInput("ml_nested_cv", "Nested CV", value = FALSE),
+              checkboxInput("ml_analyze_interactions",
+                            "Analyze interactions", value = TRUE),
+
+              hr(),
+              tags$h5(tags$strong(icon("sync"), " Execution")),
               numericInput("ml_seed", "Seed:", value = 2024,
-                           min = 1, max = 99999)
+                           min = 1, max = 99999),
+              checkboxInput("ml_verbose", "Verbose output", value = TRUE)
             ),
 
             actionButton("ml_run_btn",
@@ -530,6 +633,24 @@ server <- function(input, output, session) {
                        selected = all_vars)
   })
 
+  # ---- Dynamic metric selector based on task type ----
+  output$ml_metric_ui <- renderUI({
+    task <- input$ml_task
+    if (task == "regression") {
+      choices <- c("Auto (RMSE)" = "auto", "RMSE" = "rmse",
+                   "R-squared" = "rsq", "MAE" = "mae")
+    } else {
+      choices <- c("Auto (ROC-AUC)" = "auto", "ROC-AUC" = "roc_auc",
+                   "F1-Score" = "f_meas", "F2-Score" = "f2_meas",
+                   "Accuracy" = "accuracy", "Sensitivity" = "sensitivity",
+                   "Specificity" = "specificity",
+                   "Balanced Accuracy" = "bal_accuracy",
+                   "PR-AUC" = "pr_auc", "MCC" = "mcc")
+    }
+    selectInput("ml_select_metric", "Selection metric:",
+                choices = choices, selected = "auto")
+  })
+
   # ---- Run easy_ml ----
   observeEvent(input$ml_run_btn, {
 
@@ -592,37 +713,68 @@ server <- function(input, output, session) {
     }
 
     # Build parameters
-    balance <- if (input$ml_balance == "none") FALSE else TRUE
-    balance_method <- if (input$ml_balance == "none") "smote" else input$ml_balance
+    select_metric_val <- if (!is.null(input$ml_select_metric) &&
+                             input$ml_select_metric != "auto") {
+      input$ml_select_metric
+    } else NULL
 
     withProgress(message = "Running easyML pipeline...", value = 0, {
 
       incProgress(0.05, detail = "Preparing data...")
 
       tryCatch({
-        # Use easy_ml directly with sink-based capture (more Shiny-friendly)
-        # easy_ml already captures verbose internally via sink(split=TRUE)
-        result <- suppressWarnings(suppressMessages(
-          easyML::easy_ml(
-            data              = data_subset,
-            target            = input$ml_target,
-            task              = input$ml_task,
-            models            = input$ml_models,
-            test_split        = input$ml_test_split,
-            cv_folds          = as.integer(input$ml_cv_folds),
-            tune_best         = input$ml_tune,
-            tune_method       = if (input$ml_tune) input$ml_tune_method else "random",
-            tune_grid         = if (input$ml_tune) as.integer(input$ml_tune_grid) else 20L,
+        result <- easyML::easy_ml(
+            data                = data_subset,
+            target              = input$ml_target,
+            task                = input$ml_task,
+            models              = input$ml_models,
+            test_split          = input$ml_test_split,
+            cv_folds            = as.integer(input$ml_cv_folds),
+            select_metric       = select_metric_val,
+            tune_best           = input$ml_tune,
+            tune_method         = if (input$ml_tune) input$ml_tune_method else "random",
+            tune_grid           = if (input$ml_tune) as.integer(input$ml_tune_grid) else 20L,
+            tune_iter           = if (input$ml_tune && !is.null(input$ml_tune_iter))
+                                    as.integer(input$ml_tune_iter) else 30L,
             feature_engineering = input$ml_feature_eng,
-            balance_classes   = balance,
-            balance_method    = balance_method,
-            optimize_threshold = input$ml_optimize_threshold,
-            nested_cv         = input$ml_nested_cv,
-            run_shap          = input$ml_run_shap,
-            seed              = as.integer(input$ml_seed),
-            verbose           = TRUE
+            feature_selection   = input$ml_feature_selection,
+            balance_classes     = input$ml_balance_classes,
+            balance_method      = if (input$ml_balance_classes)
+                                    input$ml_balance_method else "smote",
+            impute              = input$ml_impute,
+            impute_method       = if (input$ml_impute)
+                                    input$ml_impute_method else "knn",
+            normalize           = input$ml_normalize,
+            normalize_method    = if (input$ml_normalize)
+                                    input$ml_normalize_method else "zscore",
+            use_pca             = input$ml_use_pca,
+            pca_threshold       = if (input$ml_use_pca && !is.null(input$ml_pca_threshold))
+                                    input$ml_pca_threshold else 0.95,
+            treat_outliers      = input$ml_treat_outliers,
+            outlier_percentile  = if (input$ml_treat_outliers && !is.null(input$ml_outlier_percentile))
+                                    input$ml_outlier_percentile else 0.05,
+            remove_high_cor     = input$ml_remove_high_cor,
+            cor_threshold       = if (input$ml_remove_high_cor && !is.null(input$ml_cor_threshold))
+                                    input$ml_cor_threshold else 0.90,
+            remove_high_vif     = input$ml_remove_high_vif,
+            vif_threshold       = if (input$ml_remove_high_vif && !is.null(input$ml_vif_threshold))
+                                    input$ml_vif_threshold else 5,
+            run_eda             = input$ml_run_eda,
+            run_shap            = input$ml_run_shap,
+            n_shap              = if (input$ml_run_shap && !is.null(input$ml_n_shap))
+                                    as.integer(input$ml_n_shap) else 100L,
+            optimize_threshold  = input$ml_optimize_threshold,
+            threshold_method    = if (input$ml_optimize_threshold && !is.null(input$ml_threshold_method))
+                                    input$ml_threshold_method else "youden",
+            calibrate_probs     = input$ml_calibrate_probs,
+            calibration_method  = if (input$ml_calibrate_probs && !is.null(input$ml_calibration_method))
+                                    input$ml_calibration_method else "platt",
+            check_leakage       = input$ml_check_leakage,
+            nested_cv           = input$ml_nested_cv,
+            analyze_interactions = input$ml_analyze_interactions,
+            seed                = as.integer(input$ml_seed),
+            verbose             = input$ml_verbose
           )
-        ))
 
         incProgress(0.8, detail = "Processing results...")
 

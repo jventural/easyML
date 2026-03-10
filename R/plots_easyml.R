@@ -177,21 +177,35 @@ generate_all_plots <- function(x, verbose = TRUE) {
 
   # 5. SHAP (si aplica)
   if (!is.null(x$interpretation$shap)) {
-    fig_num <- fig_num + 1
     interpret_obj <- list(
       importance = x$importance,
       shap = x$interpretation$shap
     )
     class(interpret_obj) <- c("easyml_interpret", "list")
+
+    # 5a. SHAP Bar Plot (importancia)
+    fig_num <- fig_num + 1
+    plots$shap_bar <- plot_shap_bar(interpret_obj, top_n = 15)
+    figures_catalog$shap_bar <- list(
+      number = fig_num, type = "figura",
+      id = paste0("Figura_", fig_num),
+      title = "SHAP Feature Importance (Bar)",
+      description = "Importancia media absoluta SHAP por variable",
+      filename = paste0("Figura_", fig_num, "_SHAP_Bar.png")
+    )
+    if (verbose) cat("      - Figura", fig_num, ": SHAP bar (importancia)\n")
+
+    # 5b. SHAP Beeswarm Plot (distribucion)
+    fig_num <- fig_num + 1
     plots$shap_summary <- plot_shap_summary(interpret_obj, top_n = 15)
     figures_catalog$shap_summary <- list(
       number = fig_num, type = "figura",
       id = paste0("Figura_", fig_num),
-      title = "SHAP Summary Plot",
-      description = "Contribucion de variables a predicciones individuales",
-      filename = paste0("Figura_", fig_num, "_SHAP.png")
+      title = "SHAP Beeswarm Plot",
+      description = "Distribucion de valores SHAP por variable (beeswarm)",
+      filename = paste0("Figura_", fig_num, "_SHAP_Beeswarm.png")
     )
-    if (verbose) cat("      - Figura", fig_num, ": SHAP summary\n")
+    if (verbose) cat("      - Figura", fig_num, ": SHAP beeswarm\n")
   }
 
   if (verbose) {
@@ -270,7 +284,9 @@ plot.easyml <- function(x, type = "panel", top_n = 15, ...) {
     residual_diagnostics = "residual_diagnostics",
     tuning = "tuning",
     threshold = "threshold_optimization",
-    shap = "shap_summary"
+    shap = "shap_summary",
+    shap_bar = "shap_bar",
+    shap_beeswarm = "shap_summary"
   )
 
   if (type %in% names(plot_map)) {

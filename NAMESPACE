@@ -57,6 +57,7 @@ export(get_importance)
 export(calculate_shap)
 export(plot_importance)
 export(plot_shap_summary)
+export(plot_shap_bar)
 export(plot_shap_dependence)
 
 # FUNCIONES SAMPLE SIZE

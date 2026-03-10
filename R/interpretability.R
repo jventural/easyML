@@ -209,7 +209,7 @@ plot_importance <- function(interpret_result, top_n = 15) {
 }
 
 
-#' @title Grafico SHAP Summary
+#' @title Grafico SHAP Summary (Beeswarm)
 #' @export
 plot_shap_summary <- function(interpret_result, top_n = 15) {
 
@@ -220,12 +220,25 @@ plot_shap_summary <- function(interpret_result, top_n = 15) {
   }
 
   shap_values <- interpret_result$shap$shap_values
+  test_sample <- interpret_result$shap$test_sample
+
+  # Usar shapviz para beeswarm plot
+  if (requireNamespace("shapviz", quietly = TRUE)) {
+    predictors <- colnames(shap_values)
+    X_data <- as.data.frame(test_sample[, predictors, drop = FALSE])
+    sv <- shapviz::shapviz(as.matrix(shap_values), X = X_data)
+    p <- shapviz::sv_importance(sv, kind = "beeswarm", show_numbers = TRUE,
+                                max_display = top_n,
+                                viridis_args = list(option = "D")) +
+      ggplot2::theme_bw() +
+      ggplot2::labs(title = "SHAP Values (Impact on Model Output)",
+                    x = "", y = "SHAP value", color = "Feature Value")
+    return(p)
+  }
+
+  # Fallback si shapviz no esta instalado: boxplot manual
   importance <- interpret_result$shap$importance
-
-  # Top variables
   top_vars <- utils::head(importance$Variable, top_n)
-
-  # Preparar datos para grafico
   shap_df <- as.data.frame(shap_values[, top_vars, drop = FALSE])
   shap_long <- tidyr::pivot_longer(
     shap_df,
@@ -233,7 +246,6 @@ plot_shap_summary <- function(interpret_result, top_n = 15) {
     names_to = "Variable",
     values_to = "SHAP"
   )
-
   shap_long$Variable <- factor(shap_long$Variable, levels = rev(top_vars))
 
   ggplot2::ggplot(shap_long, ggplot2::aes(x = SHAP, y = Variable)) +
@@ -245,6 +257,52 @@ plot_shap_summary <- function(interpret_result, top_n = 15) {
       y = NULL
     ) +
     ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold")
+    )
+}
+
+
+#' @title Grafico SHAP Bar (Importancia)
+#' @export
+plot_shap_bar <- function(interpret_result, top_n = 15) {
+
+  if (is.null(interpret_result$shap) ||
+      is.null(interpret_result$shap$shap_values)) {
+    message("No hay valores SHAP disponibles")
+    return(NULL)
+  }
+
+  shap_values <- interpret_result$shap$shap_values
+  test_sample <- interpret_result$shap$test_sample
+
+  # Usar shapviz para bar plot
+  if (requireNamespace("shapviz", quietly = TRUE)) {
+    predictors <- colnames(shap_values)
+    X_data <- as.data.frame(test_sample[, predictors, drop = FALSE])
+    sv <- shapviz::shapviz(as.matrix(shap_values), X = X_data)
+    p <- shapviz::sv_importance(sv, kind = "bar", max_display = top_n) +
+      ggplot2::theme_bw() +
+      ggplot2::labs(title = "SHAP Feature Importance",
+                    x = "", y = "mean(|SHAP value|)")
+    return(p)
+  }
+
+  # Fallback: barras manuales con mean(|SHAP|)
+  importance <- interpret_result$shap$importance
+  top_vars <- utils::head(importance, top_n)
+  top_vars$Variable <- factor(top_vars$Variable,
+                               levels = rev(top_vars$Variable))
+
+  ggplot2::ggplot(top_vars,
+                  ggplot2::aes(x = Mean_Abs_SHAP, y = Variable)) +
+    ggplot2::geom_col(fill = "#33D1FF", color = "gray32", alpha = 0.8) +
+    ggplot2::labs(
+      title = "SHAP Feature Importance",
+      x = "mean(|SHAP value|)",
+      y = NULL
+    ) +
+    ggplot2::theme_bw() +
     ggplot2::theme(
       plot.title = ggplot2::element_text(hjust = 0.5, face = "bold")
     )
