@@ -46,7 +46,7 @@ ui <- dashboardPage(
                icon = icon("file-alt"))
     ),
     hr(),
-    div(style = "padding: 10px; color: #a5b4fc; font-size: 11px;",
+    div(style = "padding: 10px; color: #5eead4; font-size: 11px;",
       p("easyML v1.0.0")
     )
   ),
@@ -59,7 +59,7 @@ ui <- dashboardPage(
       ),
       tags$style(HTML("
         /* ============================================================
-           easyML — Midnight Indigo Theme
+           easyML — Ocean Depths Theme
            ============================================================ */
 
         /* --- Typography --- */
@@ -69,21 +69,21 @@ ui <- dashboardPage(
 
         /* --- Content area --- */
         .content-wrapper {
-          background-color: #f0f1f6;
+          background-color: #f0fdfa;
         }
 
         /* --- Header --- */
         .skin-black .main-header .logo {
-          background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+          background: linear-gradient(135deg, #0f2027 0%, #203a43 100%);
           font-weight: 700;
           letter-spacing: 0.5px;
-          color: #e0e7ff;
+          color: #ccfbf1;
         }
         .skin-black .main-header .logo:hover {
-          background: linear-gradient(135deg, #312e81 0%, #3730a3 100%);
+          background: linear-gradient(135deg, #203a43 0%, #2c5364 100%);
         }
         .skin-black .main-header .navbar {
-          background: linear-gradient(135deg, #312e81 0%, #3730a3 100%);
+          background: linear-gradient(135deg, #203a43 0%, #2c5364 100%);
         }
         .skin-black .main-header .navbar .sidebar-toggle {
           color: #ffffff;
@@ -95,28 +95,28 @@ ui <- dashboardPage(
         /* --- Sidebar --- */
         .skin-black .main-sidebar,
         .skin-black .left-side {
-          background-color: #1e1b4b;
+          background-color: #0f2027;
         }
         .skin-black .sidebar-menu > li > a {
-          color: #c7d2fe;
+          color: #99f6e4;
           border-left: 3px solid transparent;
           transition: all 0.2s ease;
         }
         .skin-black .sidebar-menu > li > a:hover {
-          background-color: rgba(99, 102, 241, 0.15);
-          border-left: 3px solid #818cf8;
-          color: #e0e7ff;
+          background-color: rgba(6, 182, 212, 0.15);
+          border-left: 3px solid #67e8f9;
+          color: #ccfbf1;
         }
         .skin-black .sidebar-menu > li.active > a {
-          background-color: rgba(99, 102, 241, 0.25);
-          border-left: 3px solid #6366f1;
+          background-color: rgba(6, 182, 212, 0.25);
+          border-left: 3px solid #22d3ee;
           color: #ffffff;
           font-weight: 600;
         }
         .skin-black .sidebar-menu > li > .treeview-menu {
-          background-color: #1a1744;
+          background-color: #0c1b22;
         }
-        .skin-black .sidebar a { color: #a5b4fc; }
+        .skin-black .sidebar a { color: #5eead4; }
 
         /* --- Box overrides --- */
         .box {
@@ -125,10 +125,10 @@ ui <- dashboardPage(
           border-top: none;
         }
         .box.box-solid.box-primary {
-          border-top: 3px solid #6366f1;
+          border-top: 3px solid #06b6d4;
         }
         .box.box-solid.box-primary > .box-header {
-          background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+          background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
           border-radius: 12px 12px 0 0;
           color: #ffffff;
         }
@@ -141,10 +141,10 @@ ui <- dashboardPage(
           color: #ffffff;
         }
         .box.box-solid.box-info {
-          border-top: 3px solid #06b6d4;
+          border-top: 3px solid #0ea5e9;
         }
         .box.box-solid.box-info > .box-header {
-          background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+          background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
           border-radius: 12px 12px 0 0;
           color: #ffffff;
         }
@@ -186,18 +186,18 @@ ui <- dashboardPage(
 
         /* --- General buttons --- */
         .btn-primary {
-          background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+          background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
           border: none;
-          box-shadow: 0 2px 8px rgba(99,102,241,0.25);
+          box-shadow: 0 2px 8px rgba(6, 182, 212, 0.25);
         }
         .btn-primary:hover {
-          background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+          background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%);
         }
         .btn-warning {
           background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
           border: none;
           color: #ffffff;
-          box-shadow: 0 2px 8px rgba(245,158,11,0.25);
+          box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
         }
         .btn-warning:hover {
           background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
@@ -213,26 +213,26 @@ ui <- dashboardPage(
           transition: all 0.2s ease;
         }
         .btn-default:hover {
-          background-color: #f3f4f6;
-          border-color: #9ca3af;
+          background-color: #f0fdfa;
+          border-color: #5eead4;
         }
 
         /* --- Verbose terminal --- */
         .verbose-output {
           max-height: 500px; overflow-y: auto; font-size: 12px;
-          background: #0f172a; color: #cbd5e1; padding: 18px; border-radius: 10px;
+          background: #0a192f; color: #64ffda; padding: 18px; border-radius: 10px;
           font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
           white-space: pre-wrap;
-          border: 1px solid #1e293b;
+          border: 1px solid #172a45;
         }
 
         /* --- Metric cards --- */
         .metric-card {
           text-align: center; padding: 16px 12px;
-          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+          background: linear-gradient(135deg, #0e7490 0%, #06b6d4 100%);
           color: white; border-radius: 14px; margin: 5px; display: inline-block;
           width: 45%;
-          box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+          box-shadow: 0 4px 14px rgba(6, 182, 212, 0.3);
         }
         .metric-value { font-size: 26px; font-weight: 700; }
         .metric-label { font-size: 11px; opacity: 0.85; letter-spacing: 0.3px; }
@@ -249,9 +249,9 @@ ui <- dashboardPage(
 
         /* --- Section headers --- */
         .section-header {
-          background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+          background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
           padding: 10px 15px; border-radius: 10px; color: white; margin-bottom: 15px;
-          box-shadow: 0 2px 8px rgba(99,102,241,0.2);
+          box-shadow: 0 2px 8px rgba(6, 182, 212, 0.2);
         }
         .section-header h4 { margin: 0; font-weight: 600; }
 
@@ -275,8 +275,8 @@ ui <- dashboardPage(
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
         .form-control:focus {
-          border-color: #6366f1;
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+          border-color: #06b6d4;
+          box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
         }
 
         /* --- Select inputs --- */
@@ -285,52 +285,52 @@ ui <- dashboardPage(
           border: 1px solid #d1d5db !important;
         }
         .selectize-input.focus {
-          border-color: #6366f1 !important;
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+          border-color: #06b6d4 !important;
+          box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15) !important;
         }
 
         /* --- Slider accent --- */
         .irs--shiny .irs-bar {
-          background: #6366f1;
-          border-top: 1px solid #4f46e5;
-          border-bottom: 1px solid #4f46e5;
+          background: #06b6d4;
+          border-top: 1px solid #0891b2;
+          border-bottom: 1px solid #0891b2;
         }
         .irs--shiny .irs-from, .irs--shiny .irs-to,
         .irs--shiny .irs-single {
-          background-color: #4f46e5;
+          background-color: #0891b2;
         }
         .irs--shiny .irs-handle {
-          border: 2px solid #4f46e5;
+          border: 2px solid #0891b2;
         }
 
         /* --- Checkbox accent --- */
         .checkbox input[type='checkbox']:checked + span::before,
         .icheckbox_square-blue.checked {
-          border-color: #6366f1;
+          border-color: #06b6d4;
         }
 
         /* --- DataTables --- */
         .dataTables_wrapper .dataTables_paginate .paginate_button.current {
-          background: #6366f1 !important;
+          background: #0891b2 !important;
           color: white !important;
           border: none !important;
           border-radius: 6px;
         }
         .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
-          background: #e0e7ff !important;
-          color: #4f46e5 !important;
+          background: #ccfbf1 !important;
+          color: #0e7490 !important;
           border: none !important;
         }
         table.dataTable thead th {
-          background-color: #f8fafc;
+          background-color: #f0fdfa;
           font-weight: 600;
-          color: #334155;
-          border-bottom: 2px solid #e2e8f0;
+          color: #134e4a;
+          border-bottom: 2px solid #99f6e4;
         }
 
         /* --- Notification badges --- */
         .skin-black .main-header .navbar .nav > li > a {
-          color: #e0e7ff;
+          color: #ccfbf1;
         }
 
         /* --- Scrollbar styling --- */
@@ -343,17 +343,17 @@ ui <- dashboardPage(
           background: transparent;
         }
         .verbose-output::-webkit-scrollbar-thumb {
-          background: #475569;
+          background: #2c5364;
           border-radius: 3px;
         }
         .report-preview::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
+          background: #99f6e4;
           border-radius: 3px;
         }
 
         /* --- Sub-section headers in Advanced Options --- */
         .box-body h5 {
-          color: #4338ca;
+          color: #0e7490;
           margin-top: 5px;
         }
         .box-body hr {
@@ -777,7 +777,7 @@ ui <- dashboardPage(
               div(style = "text-align: center; margin-bottom: 10px;",
                 tags$a(href = "https://platform.openai.com/api-keys",
                        target = "_blank",
-                       style = "color: #6366f1; font-size: 12px;",
+                       style = "color: #0891b2; font-size: 12px;",
                        icon("external-link-alt"), " Get API Key")
               ),
               selectInput("report_model", "Model:",
