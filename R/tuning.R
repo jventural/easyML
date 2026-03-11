@@ -21,6 +21,7 @@ tune_best_model <- function(modeling_result,
                             method = "random",
                             grid_size = 20,
                             iter = 30,
+                            select_metric = NULL,
                             seed = 2024,
                             verbose = TRUE) {
 
@@ -106,6 +107,7 @@ tune_best_model <- function(modeling_result,
     method = method,
     grid_size = grid_size,
     iter = iter,
+    select_metric = select_metric,
     verbose = verbose
   )
 
@@ -135,32 +137,29 @@ tune_best_model <- function(modeling_result,
     cat("    validacion cruzada. La mejor combinacion es la que obtuvo el mejor\n")
     cat("    rendimiento promedio en todos los folds.\n\n")
 
-    # Mostrar mejora
+    # Mostrar mejora (dinamico segun select_metric)
     metrics_tune <- tune::collect_metrics(tune_result$tune_results)
 
-    if (task == "classification") {
-      best_auc <- max(metrics_tune$mean[metrics_tune$.metric == "roc_auc"])
-      cat("    Mejor ROC-AUC en CV:", round(best_auc, 4), "\n")
+    metric_labels_tune <- c(
+      roc_auc = "ROC-AUC", f_meas = "F1-Score", f2_meas = "F2-Score",
+      accuracy = "Accuracy", mcc = "MCC", kap = "Cohen's Kappa",
+      rmse = "RMSE", rsq = "R-squared", mae = "MAE"
+    )
+    maximize_metrics <- c("roc_auc", "f_meas", "f2_meas", "accuracy", "mcc", "kap", "rsq")
 
-      # Interpretacion
-      interpretation <- .interpret_metric_value("roc_auc", best_auc)
+    metric_vals <- metrics_tune$mean[metrics_tune$.metric == select_metric]
+    if (length(metric_vals) > 0) {
+      best_val <- if (select_metric %in% maximize_metrics) max(metric_vals) else min(metric_vals)
+      label <- metric_labels_tune[select_metric]
+      cat("    Mejor", label, "en CV:", round(best_val, 4), "\n")
+
+      interpretation <- .interpret_metric_value(select_metric, best_val)
       cat("    Interpretacion:", interpretation, "\n\n")
-
-      cat("    Siguiente paso: El modelo final sera entrenado con estos hiperparametros\n")
-      cat("    optimizados y se evaluara en el conjunto de test (datos que el modelo\n")
-      cat("    nunca ha visto) para medir su rendimiento real.\n")
-    } else {
-      best_rmse <- min(metrics_tune$mean[metrics_tune$.metric == "rmse"])
-      cat("    Mejor RMSE en CV:", round(best_rmse, 4), "\n")
-
-      # Interpretacion
-      interpretation <- .interpret_metric_value("rmse", best_rmse)
-      cat("    Interpretacion:", interpretation, "\n\n")
-
-      cat("    Siguiente paso: El modelo final sera entrenado con estos hiperparametros\n")
-      cat("    optimizados y se evaluara en el conjunto de test (datos que el modelo\n")
-      cat("    nunca ha visto) para medir su rendimiento real.\n")
     }
+
+    cat("    Siguiente paso: El modelo final sera entrenado con estos hiperparametros\n")
+    cat("    optimizados y se evaluara en el conjunto de test (datos que el modelo\n")
+    cat("    nunca ha visto) para medir su rendimiento real.\n")
 
     # Imprimir referencia segun metodo al final
     if (method == "bayes") {
@@ -279,7 +278,12 @@ tune_best_model <- function(modeling_result,
 
 #' @title Realizar tuning
 #' @noRd
-.perform_tuning <- function(model_name, recipe, cv_folds, task, method, grid_size, iter, verbose) {
+.perform_tuning <- function(model_name, recipe, cv_folds, task, method, grid_size, iter, select_metric = NULL, verbose) {
+
+  # Establecer metrica de seleccion
+  if (is.null(select_metric)) {
+    select_metric <- if (task == "classification") "mcc" else "rsq"
+  }
 
   # Definir metricas
   if (task == "classification") {
@@ -291,13 +295,11 @@ tune_best_model <- function(modeling_result,
       yardstick::kap,
       f2_meas
     )
-    select_metric <- "roc_auc"
   } else {
     metrics_set <- yardstick::metric_set(
       yardstick::rmse,
       yardstick::rsq
     )
-    select_metric <- "rmse"
   }
 
   # Crear especificacion con tune()

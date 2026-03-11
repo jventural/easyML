@@ -17,8 +17,8 @@
 #' \dontrun{
 #' result <- ml_sample_size(
 #'   task = "classification",
-#'   metric = "auc",
-#'   target = 0.80
+#'   metric = "mcc",
+#'   target = 0.50
 #' )
 #' plot_learning_curve(result)
 #' }

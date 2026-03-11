@@ -204,18 +204,20 @@ export_verbose_txt <- function(result, file_path = "easyml_report.txt") {
     comp <- result$model_comparison
     if (is.data.frame(comp)) {
       # Header de tabla
-      lines <- c(lines, sprintf("    %-12s %8s %8s %8s",
-                                "Modelo", "ROC_AUC", "Accuracy", "F1"))
-      lines <- c(lines, paste("    ", paste(rep("-", 40), collapse = ""), sep = ""))
+      lines <- c(lines, sprintf("    %-12s %8s %8s %8s %8s",
+                                "Modelo", "MCC", "ROC_AUC", "Accuracy", "F1"))
+      lines <- c(lines, paste("    ", paste(rep("-", 50), collapse = ""), sep = ""))
 
       for (i in 1:nrow(comp)) {
         model_name <- if ("model" %in% names(comp)) comp$model[i] else rownames(comp)[i]
+        mcc_val <- if ("mcc" %in% names(comp)) comp$mcc[i] else NA
         auc_val <- if ("roc_auc" %in% names(comp)) comp$roc_auc[i] else NA
         acc_val <- if ("accuracy" %in% names(comp)) comp$accuracy[i] else NA
         f1_val <- if ("f_meas" %in% names(comp)) comp$f_meas[i] else NA
 
-        lines <- c(lines, sprintf("    %-12s %8.4f %8.4f %8.4f",
+        lines <- c(lines, sprintf("    %-12s %8.4f %8.4f %8.4f %8.4f",
                                   model_name,
+                                  ifelse(is.na(mcc_val), 0, mcc_val),
                                   ifelse(is.na(auc_val), 0, auc_val),
                                   ifelse(is.na(acc_val), 0, acc_val),
                                   ifelse(is.na(f1_val), 0, f1_val)))
@@ -278,7 +280,12 @@ export_verbose_txt <- function(result, file_path = "easyml_report.txt") {
       metric_value <- metrics_df$.estimate[i]
 
       # Formatear e interpretar
-      if (metric_name == "roc_auc") {
+      if (metric_name == "mcc") {
+        interp <- ifelse(metric_value >= 0.7, "Excelente",
+                         ifelse(metric_value >= 0.5, "Bueno",
+                                ifelse(metric_value >= 0.3, "Aceptable", "Pobre")))
+        lines <- c(lines, sprintf("      - MCC: %.4f (%s)", metric_value, interp))
+      } else if (metric_name == "roc_auc") {
         interp <- ifelse(metric_value >= 0.9, "Excelente",
                          ifelse(metric_value >= 0.8, "Bueno",
                                 ifelse(metric_value >= 0.7, "Aceptable", "Pobre")))
@@ -408,21 +415,27 @@ export_verbose_txt <- function(result, file_path = "easyml_report.txt") {
   lines <- c(lines, sep_line)
   lines <- c(lines, "")
 
-  # Obtener AUC para conclusion
-  auc_value <- NA
+  # Obtener metrica principal para conclusion
+  select_metric_conc <- result$metadata$select_metric %||%
+    (if (result$task == "classification") "mcc" else "rsq")
+  metric_labels_conc <- c(
+    roc_auc = "ROC-AUC", mcc = "MCC", f_meas = "F1-Score",
+    accuracy = "Accuracy", rsq = "R-squared", rmse = "RMSE", mae = "MAE",
+    kap = "Cohen's Kappa", bal_accuracy = "Balanced Accuracy"
+  )
+  main_val <- NA
   if (!is.null(result$test_metrics)) {
-    auc_row <- result$test_metrics[result$test_metrics$.metric == "roc_auc", ]
-    if (nrow(auc_row) > 0) auc_value <- auc_row$.estimate[1]
+    main_row <- result$test_metrics[result$test_metrics$.metric == select_metric_conc, ]
+    if (nrow(main_row) > 0) main_val <- main_row$.estimate[1]
   }
 
   lines <- c(lines, sprintf("Mejor modelo: %s", result$best_model))
-  if (!is.na(auc_value)) {
-    lines <- c(lines, sprintf("ROC-AUC en test: %.4f", auc_value))
-    interp <- ifelse(auc_value >= 0.9, "excelente",
-                     ifelse(auc_value >= 0.8, "buena",
-                            ifelse(auc_value >= 0.7, "aceptable", "limitada")))
-    lines <- c(lines, sprintf("Interpretacion: El modelo tiene capacidad %s para", interp))
-    lines <- c(lines, sprintf("distinguir entre las clases de '%s'.", result$target))
+  if (!is.na(main_val)) {
+    label <- metric_labels_conc[select_metric_conc]
+    if (is.na(label)) label <- toupper(select_metric_conc)
+    lines <- c(lines, sprintf("%s en test: %.4f", label, main_val))
+    interpretation <- .interpret_metric_value(select_metric_conc, main_val)
+    lines <- c(lines, sprintf("Interpretacion: %s", interpretation))
   }
   lines <- c(lines, "")
 
@@ -907,6 +920,10 @@ generate_report_from_json <- function(json_path,
       )
     }
 
+    if (!is.null(metrics$mcc)) {
+      content <- paste0(content, "- **MCC (Matthews Correlation Coefficient)**: ",
+                        round(metrics$mcc, 4), "\n")
+    }
     if (!is.null(metrics$roc_auc)) {
       auc_label <- if (n_cls_met >= 3) "AUC Hand-Till (multiclase)" else "AUC (Area Under the Curve)"
       content <- paste0(content, "- **", auc_label, "**: ",
@@ -1450,7 +1467,12 @@ generate_report_with_ai <- function(json_path,
   interpretations <- sapply(seq_along(metric_values), function(i) {
     m <- metric_names[i]
     val <- metric_values[i]
-    if (m == "roc_auc") {
+    if (m == "mcc") {
+      if (val >= 0.7) "Excelente"
+      else if (val >= 0.5) "Bueno"
+      else if (val >= 0.3) "Aceptable"
+      else "Bajo"
+    } else if (m == "roc_auc") {
       if (val >= 0.9) "Excelente"
       else if (val >= 0.8) "Bueno"
       else if (val >= 0.7) "Aceptable"
@@ -2118,7 +2140,7 @@ launch_easyml_app <- function(launch.browser = TRUE) {
   if (!is.null(result$evaluation$overfitting$comparison)) {
     comp <- result$evaluation$overfitting$comparison
     select_metric <- meta$select_metric %||%
-      (if (task == "classification") "roc_auc" else "rmse")
+      (if (task == "classification") "mcc" else "rsq")
     row_idx <- which(comp$metric == select_metric)
     if (length(row_idx) > 0) {
       gap <- comp$gap[row_idx[1]]
@@ -2143,7 +2165,7 @@ launch_easyml_app <- function(launch.browser = TRUE) {
       nrow(result$cv_summary) > 1) {
     cv <- result$cv_summary
     select_metric <- meta$select_metric %||%
-      (if (task == "classification") "roc_auc" else "rmse")
+      (if (task == "classification") "mcc" else "rsq")
     if (select_metric %in% names(cv)) {
       vals <- cv[[select_metric]]
       vals <- vals[!is.na(vals)]
@@ -2402,7 +2424,7 @@ explain_with_ai <- function(result,
   if (!is.null(result$cv_summary) && is.data.frame(result$cv_summary)) {
     cv <- result$cv_summary
     select_metric <- meta$select_metric %||%
-      (if (task == "classification") "roc_auc" else "rmse")
+      (if (task == "classification") "mcc" else "rsq")
     if (select_metric %in% names(cv) && "model" %in% names(cv)) {
       cv_text <- paste(sapply(seq_len(nrow(cv)), function(i) {
         sprintf("  %s: %s=%.4f", cv$model[i], select_metric, cv[[select_metric]][i])

@@ -16,12 +16,12 @@
 #' @param models Vector con modelos a entrenar.
 #' @param test_split Proporcion de datos para test (default: 0.20).
 #' @param cv_folds Numero de folds para validacion cruzada (default: 10).
-#' @param select_metric Metrica para seleccionar el mejor modelo. Para clasificacion:
-#'   "roc_auc" (default), "f_meas" (F1), "f2_meas" (F2, prioriza recall),
-#'   "accuracy", "sensitivity", "specificity", "bal_accuracy" (Balanced Accuracy),
-#'   "pr_auc" (Precision-Recall AUC), "mcc" (Matthews Correlation Coefficient),
-#'   "kap" (Cohen's Kappa).
-#'   Para regresion: "rmse" (default), "rsq", "mae".
+#' @param select_metric Metrica para seleccionar el mejor modelo. Si es NULL (default),
+#'   se auto-selecciona segun literatura: MCC para clasificacion (Chicco & Jurman, 2023),
+#'   R-squared para regresion (Chicco et al., 2021).
+#'   Para clasificacion: "mcc" (default), "roc_auc", "f_meas" (F1), "f2_meas" (F2),
+#'   "accuracy", "sensitivity", "specificity", "bal_accuracy", "pr_auc", "kap".
+#'   Para regresion: "rsq" (default), "rmse", "mae".
 #' @param tune_best Realizar tuning del mejor modelo (default: TRUE).
 #' @param tune_method Metodo de busqueda de hiperparametros: "random" (Random Search),
 #'   "grid" (Grid Search), "bayes" (Optimizacion Bayesiana), "racing" (Racing ANOVA).
@@ -307,9 +307,14 @@ easy_ml <- function(data,
 
  # Validar y establecer select_metric
   n_levels_target <- length(levels(factor(data[[target]])))
+  metric_auto_selected <- is.null(select_metric)
 
   if (is.null(select_metric)) {
-    select_metric <- if (task == "classification") "roc_auc" else "rmse"
+    if (task == "classification") {
+      select_metric <- "mcc"  # Chicco & Jurman (2023)
+    } else {
+      select_metric <- "rsq"  # Chicco et al. (2021)
+    }
   } else {
     valid_class_metrics <- c("roc_auc", "f_meas", "f2_meas", "accuracy", "sensitivity",
                               "specificity", "bal_accuracy", "pr_auc", "mcc", "kap")
@@ -337,6 +342,17 @@ easy_ml <- function(data,
     cat("Variable objetivo:", target, "\n")
     cat("Tarea:", task, "\n")
     cat("Modelos:", paste(models, collapse = ", "), "\n")
+    cat("Metrica de seleccion:", select_metric,
+        if (metric_auto_selected) "(auto)" else "(usuario)", "\n")
+    if (metric_auto_selected) {
+      if (task == "classification") {
+        cat("  Referencia: Chicco & Jurman (2023). The MCC should replace the\n")
+        cat("  ROC AUC as the standard metric. Patterns, 4(12), 100804.\n")
+      } else {
+        cat("  Referencia: Chicco et al. (2021). R-squared is more informative\n")
+        cat("  than SMAPE, MAE, MSE and RMSE. PeerJ Comput Sci, 7, e623.\n")
+      }
+    }
   }
 
   resultado <- list()
@@ -392,6 +408,7 @@ easy_ml <- function(data,
       method = tune_method,
       grid_size = tune_grid,
       iter = tune_iter,
+      select_metric = select_metric,
       seed = seed,
       verbose = verbose
     )
@@ -624,20 +641,26 @@ easy_ml <- function(data,
   class(resultado) <- c("easyml", "list")
 
   if (verbose) {
+    # Labels legibles para metricas
+    metric_labels <- c(
+      roc_auc = "ROC-AUC", f_meas = "F1-Score", f2_meas = "F2-Score",
+      accuracy = "Accuracy", sensitivity = "Sensitivity", specificity = "Specificity",
+      bal_accuracy = "Balanced Accuracy", pr_auc = "PR-AUC", mcc = "MCC",
+      kap = "Cohen's Kappa", rmse = "RMSE", rsq = "R-squared", mae = "MAE"
+    )
+
     .msg_header("Analisis Completado!")
     cat("Tiempo total:", elapsed, "segundos\n")
     cat("Mejor modelo:", .get_model_label(resultado$best_model), "\n")
-    if (task == "classification") {
-      auc <- resultado$test_metrics$.estimate[resultado$test_metrics$.metric == "roc_auc"]
-      cat("ROC-AUC en test:", round(auc, 4), "\n")
-      interpretation <- .interpret_metric_value("roc_auc", auc)
-      cat("Interpretacion:", interpretation, "\n")
-    } else {
-      rmse <- resultado$test_metrics$.estimate[resultado$test_metrics$.metric == "rmse"]
-      rsq <- resultado$test_metrics$.estimate[resultado$test_metrics$.metric == "rsq"]
-      cat("RMSE en test:", round(rmse, 4), "\n")
-      cat("R-squared:", round(rsq, 4), "\n")
-      interpretation <- .interpret_metric_value("rsq", rsq)
+
+    # Mostrar metrica seleccionada (dinamico)
+    metric_val <- resultado$test_metrics$.estimate[
+      resultado$test_metrics$.metric == select_metric
+    ]
+    metric_label <- metric_labels[select_metric]
+    if (length(metric_val) > 0 && !is.na(metric_val)) {
+      cat(metric_label, "en test:", round(metric_val, 4), "\n")
+      interpretation <- .interpret_metric_value(select_metric, metric_val)
       cat("Interpretacion:", interpretation, "\n")
     }
 
@@ -645,36 +668,14 @@ easy_ml <- function(data,
     cat(.line("-"), "\n")
     cat("CONCLUSION\n")
     cat(.line("-"), "\n")
-    if (task == "classification") {
-      cat("Se entreno un modelo de", .get_model_label(resultado$best_model), "para predecir\n")
-      cat("'", target, "'. El modelo fue evaluado en ", nrow(preprocess_result$test_data),
-          " observaciones nuevas\n", sep = "")
-      cat("(que no uso durante el entrenamiento) y obtuvo un AUC de ", round(auc, 2), ".\n", sep = "")
-      if (auc >= 0.8) {
-        cat("Este resultado indica que el modelo tiene buena capacidad para\n")
-        cat("distinguir entre las clases y puede ser util para hacer predicciones.\n")
-      } else if (auc >= 0.7) {
-        cat("Este resultado indica capacidad aceptable. El modelo puede ser util\n")
-        cat("pero podria mejorarse con mas datos o ingenieria de variables.\n")
-      } else {
-        cat("Este resultado sugiere que el modelo tiene dificultades para distinguir\n")
-        cat("las clases. Se recomienda revisar las variables o recopilar mas datos.\n")
-      }
-    } else {
-      cat("Se entreno un modelo de", .get_model_label(resultado$best_model), "para predecir\n")
-      cat("'", target, "'. El modelo fue evaluado en ", nrow(preprocess_result$test_data),
-          " observaciones nuevas\n", sep = "")
-      cat("y explica el ", round(rsq * 100, 1), "% de la variacion en los datos.\n", sep = "")
-      if (rsq >= 0.75) {
-        cat("Este es un buen ajuste que indica que el modelo captura bien\n")
-        cat("los patrones en los datos y puede ser util para predicciones.\n")
-      } else if (rsq >= 0.5) {
-        cat("Este es un ajuste moderado. El modelo captura algunos patrones\n")
-        cat("pero podria mejorarse con mas variables o datos.\n")
-      } else {
-        cat("Este ajuste es debil. Se recomienda revisar las variables\n")
-        cat("predictoras o considerar modelos alternativos.\n")
-      }
+    cat("Se entreno un modelo de", .get_model_label(resultado$best_model), "para predecir\n")
+    cat("'", target, "'. El modelo fue evaluado en ", nrow(preprocess_result$test_data),
+        " observaciones nuevas\n", sep = "")
+    if (length(metric_val) > 0 && !is.na(metric_val)) {
+      cat("(que no uso durante el entrenamiento) y obtuvo un ",
+          metric_label, " de ", round(metric_val, 4), ".\n", sep = "")
+      interpretation <- .interpret_metric_value(select_metric, metric_val)
+      cat("Interpretacion: ", interpretation, "\n", sep = "")
     }
 
     cat("\nPara usar el modelo:\n")

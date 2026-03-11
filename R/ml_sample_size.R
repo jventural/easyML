@@ -160,9 +160,9 @@ ml_sample_size <- function(data = NULL,
     .check_dependencies(m)
   }
 
-  # Default metric
+  # Default metric (MCC para clasificacion, R2 para regresion)
   if (is.null(metric)) {
-    metric <- if (task == "classification") "roc_auc" else "rmse"
+    metric <- if (task == "classification") "mcc" else "rsq"
   }
 
   # Normalize metric name (accept aliases: auc, f1, kappa, balanced_accuracy, r2)

@@ -347,12 +347,12 @@
     summary_df <- all_metrics |>
       dplyr::select(model, .metric, mean) |>
       tidyr::pivot_wider(names_from = .metric, values_from = mean) |>
-      dplyr::arrange(dplyr::desc(roc_auc))
+      dplyr::arrange(dplyr::desc(mcc))
   } else {
     summary_df <- all_metrics |>
       dplyr::select(model, .metric, mean) |>
       tidyr::pivot_wider(names_from = .metric, values_from = mean) |>
-      dplyr::arrange(rmse)
+      dplyr::arrange(dplyr::desc(rsq))
   }
 
   return(as.data.frame(summary_df))
@@ -368,6 +368,10 @@
     levels_y <- levels(target_col)
     positive_class <- levels_y[2]  # Segunda clase como positiva
     prob_col <- paste0(".pred_", positive_class)
+    n_levels <- length(levels_y)
+
+    # F2-Score
+    f2_meas <- yardstick::metric_tweak("f2_meas", yardstick::f_meas, beta = 2)
 
     metrics <- dplyr::bind_rows(
       yardstick::roc_auc(predictions, truth = !!rlang::sym(target),
@@ -379,8 +383,25 @@
       yardstick::specificity(predictions, truth = !!rlang::sym(target),
                              estimate = .pred_class),
       yardstick::f_meas(predictions, truth = !!rlang::sym(target),
-                        estimate = .pred_class)
+                        estimate = .pred_class),
+      yardstick::bal_accuracy(predictions, truth = !!rlang::sym(target),
+                              estimate = .pred_class),
+      yardstick::mcc(predictions, truth = !!rlang::sym(target),
+                     estimate = .pred_class),
+      yardstick::kap(predictions, truth = !!rlang::sym(target),
+                     estimate = .pred_class),
+      f2_meas(predictions, truth = !!rlang::sym(target),
+              estimate = .pred_class)
     )
+
+    # PR-AUC solo para binario
+    if (n_levels == 2) {
+      metrics <- dplyr::bind_rows(
+        metrics,
+        yardstick::pr_auc(predictions, truth = !!rlang::sym(target),
+                          !!rlang::sym(prob_col))
+      )
+    }
   } else {
     metrics <- dplyr::bind_rows(
       yardstick::rmse(predictions, truth = !!rlang::sym(target),
@@ -455,9 +476,9 @@
 
   # Seleccionar mejores parametros
   if (task == "classification") {
-    best_params <- tune::select_best(tune_results, metric = "roc_auc")
+    best_params <- tune::select_best(tune_results, metric = "mcc")
   } else {
-    best_params <- tune::select_best(tune_results, metric = "rmse")
+    best_params <- tune::select_best(tune_results, metric = "rsq")
   }
 
   # Finalizar workflow

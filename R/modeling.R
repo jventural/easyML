@@ -32,7 +32,7 @@ train_models <- function(preprocess_result,
 
   # Establecer metrica por defecto si no se especifica
   if (is.null(select_metric)) {
-    select_metric <- if (task == "classification") "roc_auc" else "rmse"
+    select_metric <- if (task == "classification") "mcc" else "rsq"
   }
 
   if (verbose) {
@@ -230,13 +230,16 @@ fit_models_cv <- function(model_specs, recipe, cv_folds, task, verbose = TRUE) {
 
     if (verbose) {
       metrics <- tune::collect_metrics(cv_result)
-      if (task == "classification") {
-        auc <- metrics$mean[metrics$.metric == "roc_auc"]
-        cat(" AUC =", round(auc, 3), "\n")
-      } else {
-        rmse <- metrics$mean[metrics$.metric == "rmse"]
-        cat(" RMSE =", round(rmse, 3), "\n")
+      # Mostrar metrica MCC/rsq si existe, sino fallback a roc_auc/rmse
+      show_metric <- if (task == "classification") "mcc" else "rsq"
+      show_label <- if (task == "classification") "MCC" else "R2"
+      val <- metrics$mean[metrics$.metric == show_metric]
+      if (length(val) == 0) {
+        show_metric <- if (task == "classification") "roc_auc" else "rmse"
+        show_label <- if (task == "classification") "AUC" else "RMSE"
+        val <- metrics$mean[metrics$.metric == show_metric]
       }
+      cat(paste0(" ", show_label, " = ", round(val, 3), "\n"))
     }
   }
 
@@ -250,7 +253,7 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
 
   # Establecer metrica por defecto
   if (is.null(select_metric)) {
-    select_metric <- if (task == "classification") "roc_auc" else "rmse"
+    select_metric <- if (task == "classification") "mcc" else "rsq"
   }
 
   # Etiquetas legibles para las metricas
@@ -371,6 +374,13 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
     }
 
     cat("    Nota: El", metric_labels[select_metric], "es", metric_descriptions[select_metric], "\n")
+
+    # Referencia academica para metricas auto-seleccionadas
+    if (select_metric == "mcc") {
+      cat("    Referencia: Chicco & Jurman (2023). Patterns, 4(12), 100804.\n")
+    } else if (select_metric == "rsq") {
+      cat("    Referencia: Chicco et al. (2021). PeerJ Comput Sci, 7, e623.\n")
+    }
   }
 
   list(
