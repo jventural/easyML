@@ -292,11 +292,24 @@ export_verbose_txt <- function(result, file_path = "easyml_report.txt") {
     lines <- c(lines, "")
   }
 
+  # Detectar si es multiclase
+  n_levels_txt <- 2L
+  if (!is.null(result$train_data) && result$target %in% names(result$train_data)) {
+    n_levels_txt <- length(levels(factor(result$train_data[[result$target]])))
+  }
+
   lines <- c(lines, "    Leyenda:")
-  lines <- c(lines, "      - ROC_AUC: Capacidad de distinguir entre clases (0.5=azar, 1=perfecto)")
-  lines <- c(lines, "      - Accuracy: Porcentaje de predicciones correctas")
-  lines <- c(lines, "      - Sensitivity: Porcentaje de positivos detectados correctamente")
-  lines <- c(lines, "      - Specificity: Porcentaje de negativos detectados correctamente")
+  if (n_levels_txt >= 3) {
+    lines <- c(lines, "      - ROC_AUC: Capacidad de distinguir entre clases (Hand-Till, 0.5=azar, 1=perfecto)")
+    lines <- c(lines, "      - Accuracy: Porcentaje de predicciones correctas")
+    lines <- c(lines, "      - Sensitivity: Promedio macro de sensibilidad entre clases")
+    lines <- c(lines, "      - Specificity: Promedio macro de especificidad entre clases")
+  } else {
+    lines <- c(lines, "      - ROC_AUC: Capacidad de distinguir entre clases (0.5=azar, 1=perfecto)")
+    lines <- c(lines, "      - Accuracy: Porcentaje de predicciones correctas")
+    lines <- c(lines, "      - Sensitivity: Porcentaje de positivos detectados correctamente")
+    lines <- c(lines, "      - Specificity: Porcentaje de negativos detectados correctamente")
+  }
   lines <- c(lines, "")
   lines <- c(lines, "    Referencia: Hanley, J. A., & McNeil, B. J. (1982).")
   lines <- c(lines, "    The meaning and use of the area under a ROC curve. Radiology, 143(1), 29-36.")
@@ -311,10 +324,27 @@ export_verbose_txt <- function(result, file_path = "easyml_report.txt") {
 
     cm <- result$confusion_matrix
     if (is.matrix(cm) || is.table(cm)) {
-      lines <- c(lines, "              Prediccion")
-      lines <- c(lines, sprintf("    Truth     %-8s %-8s", colnames(cm)[1], colnames(cm)[2]))
-      lines <- c(lines, sprintf("    %-8s  %-8d %-8d", rownames(cm)[1], cm[1,1], cm[1,2]))
-      lines <- c(lines, sprintf("    %-8s  %-8d %-8d", rownames(cm)[2], cm[2,1], cm[2,2]))
+      n_classes <- ncol(cm)
+      class_names <- colnames(cm)
+      if (n_classes == 2) {
+        # Binario: formato compacto
+        lines <- c(lines, "              Prediccion")
+        lines <- c(lines, sprintf("    Truth     %-8s %-8s", class_names[1], class_names[2]))
+        lines <- c(lines, sprintf("    %-8s  %-8d %-8d", rownames(cm)[1], cm[1,1], cm[1,2]))
+        lines <- c(lines, sprintf("    %-8s  %-8d %-8d", rownames(cm)[2], cm[2,1], cm[2,2]))
+      } else {
+        # Multiclase: formato N×N
+        col_width <- max(8, max(nchar(class_names)) + 2)
+        fmt <- paste0("%-", col_width, "s")
+        header <- paste("    ", sprintf(fmt, "Truth"), " ",
+                        paste(sprintf(fmt, class_names), collapse = " "), sep = "")
+        lines <- c(lines, "              Prediccion")
+        lines <- c(lines, header)
+        for (r in seq_len(nrow(cm))) {
+          row_vals <- paste(sprintf(paste0("%-", col_width, "d"), cm[r, ]), collapse = " ")
+          lines <- c(lines, sprintf("    %s %s", sprintf(fmt, rownames(cm)[r]), row_vals))
+        }
+      }
     }
     lines <- c(lines, "")
     lines <- c(lines, "    Como leer la matriz:")
@@ -473,6 +503,9 @@ export_verbose_json <- function(result, file_path = "easyml_report.json") {
       n_train = if (!is.null(meta)) meta$n_train else nrow(result$train_data),
       n_test = if (!is.null(meta)) meta$n_test else nrow(result$test_data),
       n_features = if (!is.null(meta)) meta$n_features else (ncol(result$train_data) - 1),
+      n_classes = if (result$task == "classification" && !is.null(result$train_data)) {
+        length(levels(factor(result$train_data[[result$target]])))
+      } else NULL,
       models_trained = if (!is.null(meta)) meta$models_trained else NULL,
       cv_folds = if (!is.null(meta)) meta$cv_folds else NULL,
       tune_method = if (!is.null(meta) && !is.na(meta$tune_method)) meta$tune_method else NULL,
@@ -604,7 +637,10 @@ export_verbose_json <- function(result, file_path = "easyml_report.json") {
       best_model = result$best_model,
       n_observations = nrow(result$train_data) + nrow(result$test_data),
       n_train = nrow(result$train_data),
-      n_test = nrow(result$test_data)
+      n_test = nrow(result$test_data),
+      n_classes = if (result$task == "classification" && !is.null(result$train_data)) {
+        length(levels(factor(result$train_data[[result$target]])))
+      } else NULL
     ),
     sections = list(),
     metrics = list(),
@@ -818,7 +854,10 @@ generate_report_from_json <- function(json_path,
   content <- paste0(content,
     "El analisis estadistico se realizo en R utilizando el paquete easyML. ",
     "Se empleo un enfoque de aprendizaje automatico para ",
-    ifelse(meta$task == "classification", "clasificacion", "regresion"),
+    if (meta$task == "classification") {
+      n_cls_ad <- meta$n_classes %||% 2L
+      if (n_cls_ad >= 3) paste0("clasificacion multiclase (", n_cls_ad, " clases)") else "clasificacion binaria"
+    } else "regresion",
     " con el objetivo de predecir la variable '", meta$target, "'.\n\n"
   )
 
@@ -853,13 +892,24 @@ generate_report_from_json <- function(json_path,
   content <- paste0(content, "## Metricas de Evaluacion\n\n")
 
   if (meta$task == "classification") {
-    content <- paste0(content,
-      "Los modelos se evaluaron utilizando metricas criticas para datos de clasificacion ",
-      "(Hanley & McNeil, 1982). Las metricas obtenidas en el conjunto de prueba fueron:\n\n"
-    )
+    n_cls_met <- meta$n_classes %||% 2L
+    if (n_cls_met >= 3) {
+      content <- paste0(content,
+        "Los modelos se evaluaron utilizando metricas criticas para datos de clasificacion multiclase. ",
+        "Se utilizo el metodo Hand-Till para el calculo de AUC y el estimador macro para ",
+        "sensibilidad, especificidad y F1 (Hand & Till, 2001; Hanley & McNeil, 1982). ",
+        "Las metricas obtenidas en el conjunto de prueba fueron:\n\n"
+      )
+    } else {
+      content <- paste0(content,
+        "Los modelos se evaluaron utilizando metricas criticas para datos de clasificacion ",
+        "(Hanley & McNeil, 1982). Las metricas obtenidas en el conjunto de prueba fueron:\n\n"
+      )
+    }
 
     if (!is.null(metrics$roc_auc)) {
-      content <- paste0(content, "- **AUC (Area Under the Curve)**: ",
+      auc_label <- if (n_cls_met >= 3) "AUC Hand-Till (multiclase)" else "AUC (Area Under the Curve)"
+      content <- paste0(content, "- **", auc_label, "**: ",
                         round(metrics$roc_auc, 4), "\n")
     }
     if (!is.null(metrics$accuracy)) {
@@ -916,8 +966,9 @@ generate_report_from_json <- function(json_path,
     content <- paste0(content, "\n")
   }
 
-  # Threshold optimizado
-  if (!is.null(json_data$threshold)) {
+  # Threshold optimizado (solo binario)
+  n_cls_rpt <- meta$n_classes %||% 2L
+  if (!is.null(json_data$threshold) && n_cls_rpt == 2) {
     content <- paste0(content, "## Optimizacion de Umbral\n\n")
     content <- paste0(content,
       "Se realizo una optimizacion del umbral de clasificacion para mejorar ",
@@ -1138,7 +1189,14 @@ generate_report_with_ai <- function(json_path,
   # Construir prompt del sistema
   message("Preparando contexto para ChatGPT...")
 
-  system_prompt <- .build_system_prompt(language)
+  # Detectar tipo de clasificacion
+  classification_type <- "binary"
+  if (meta$task == "classification") {
+    n_cls <- meta$n_classes %||% 2L
+    if (n_cls >= 3) classification_type <- "multiclass"
+  }
+
+  system_prompt <- .build_system_prompt(language, classification_type)
 
   # Construir mensaje del usuario
   user_message <- .build_user_message(meta, metrics, model_info, var_imp, json_data, language)
@@ -1367,6 +1425,8 @@ generate_report_with_ai <- function(json_path,
       "f_meas" = "F1-Score",
       "pr_auc" = "PR-AUC",
       "bal_accuracy" = "Balanced Accuracy",
+      "mcc" = "MCC",
+      "kap" = "Cohen's Kappa",
       "rmse" = "RMSE",
       "rsq" = "R-squared",
       "mae" = "MAE",
@@ -1584,8 +1644,86 @@ generate_report_with_ai <- function(json_path,
 
 #' @title Construir Prompt del Sistema
 #' @noRd
-.build_system_prompt <- function(language) {
+.build_system_prompt <- function(language, classification_type = "binary") {
+
+  is_multi <- (classification_type == "multiclass")
+
   if (language == "es") {
+
+    # --- Secciones condicionales ---
+    metrics_method <- if (is_multi) {
+      paste(
+        "- Metricas de evaluacion utilizadas (ROC-AUC Hand-Till, accuracy, sensitivity/specificity/F1 con estimador macro)",
+        "- Procedimiento de deteccion de data leakage",
+        sep = "\n"
+      )
+    } else {
+      paste(
+        "- Metricas de evaluacion utilizadas (ROC-AUC, accuracy, etc.)",
+        "- Procedimiento de optimizacion de hiperparametros (Random Search, grid)",
+        "- Metodo de optimizacion de threshold (indice de Youden)",
+        "- Procedimiento de deteccion de data leakage",
+        sep = "\n"
+      )
+    }
+
+    confusion_section <- if (is_multi) {
+      paste(
+        "## Matriz de Confusion",
+        "- Presenta la matriz N x N (una fila/columna por clase)",
+        "- Aciertos en la diagonal y errores fuera de ella",
+        "- Precision por clase (diagonal / total columna)",
+        "- Implicaciones practicas de las confusiones mas frecuentes",
+        "[Insertar Figura - Matriz de Confusion]",
+        sep = "\n"
+      )
+    } else {
+      paste(
+        "## Matriz de Confusion",
+        "- Verdaderos positivos/negativos",
+        "- Falsos positivos/negativos",
+        "- Implicaciones practicas de los errores",
+        "[Insertar Figura - Matriz de Confusion]",
+        sep = "\n"
+      )
+    }
+
+    calibration_section <- if (!is_multi) {
+      paste(
+        "",
+        "## Calibracion del Modelo",
+        "- Comparacion entre probabilidades predichas y observadas",
+        "- Interpretacion de la calidad de calibracion",
+        "[Insertar Figura - Calibracion]",
+        "",
+        "## Optimizacion del Umbral",
+        "- Threshold optimo vs default",
+        "- Cambios en sensibilidad/especificidad",
+        "[Insertar Figura - Threshold]",
+        sep = "\n"
+      )
+    } else {
+      ""
+    }
+
+    roc_section <- if (is_multi) {
+      paste(
+        "## Capacidad Discriminativa",
+        "- Valor de AUC Hand-Till (promedio multiclase) e interpretacion",
+        "- Descripcion de las curvas ROC por clase",
+        "[Insertar Figura - Curva ROC]",
+        sep = "\n"
+      )
+    } else {
+      paste(
+        "## Capacidad Discriminativa",
+        "- Valor de AUC e interpretacion",
+        "- Descripcion de la curva ROC",
+        "[Insertar Figura - Curva ROC]",
+        sep = "\n"
+      )
+    }
+
     paste(
       "Eres un experto en redaccion cientifica especializado en Machine Learning y analisis predictivo.",
       "Tu tarea es generar un reporte academico en ESTRUCTURA DE ARTICULO CIENTIFICO.",
@@ -1634,10 +1772,7 @@ generate_report_with_ai <- function(json_path,
       "- Seleccion de variables (metodo Boruta si se uso)",
       "- Estrategia de validacion cruzada (K-fold estratificado, numero de folds)",
       "- Modelos que FUERON evaluados (no cual gano, eso va en resultados)",
-      "- Metricas de evaluacion utilizadas (ROC-AUC, accuracy, etc.)",
-      "- Procedimiento de optimizacion de hiperparametros (Random Search, grid)",
-      "- Metodo de optimizacion de threshold (indice de Youden)",
-      "- Procedimiento de deteccion de data leakage",
+      metrics_method,
       "",
       "EJEMPLO CORRECTO: Se evaluaron tres modelos (Random Forest, XGBoost y regresion logistica)",
       "mediante validacion cruzada de 10 folds estratificados.",
@@ -1665,26 +1800,10 @@ generate_report_with_ai <- function(json_path,
       "- Interpretacion de cada metrica",
       "[Insertar Tabla 1 - Metricas de rendimiento]",
       "",
-      "## Capacidad Discriminativa",
-      "- Valor de AUC e interpretacion",
-      "- Descripcion de la curva ROC",
-      "[Insertar Figura - Curva ROC]",
+      roc_section,
       "",
-      "## Matriz de Confusion",
-      "- Verdaderos positivos/negativos",
-      "- Falsos positivos/negativos",
-      "- Implicaciones practicas de los errores",
-      "[Insertar Figura - Matriz de Confusion]",
-      "",
-      "## Calibracion del Modelo",
-      "- Comparacion entre probabilidades predichas y observadas",
-      "- Interpretacion de la calidad de calibracion",
-      "[Insertar Figura - Calibracion]",
-      "",
-      "## Optimizacion del Umbral",
-      "- Threshold optimo vs default",
-      "- Cambios en sensibilidad/especificidad",
-      "[Insertar Figura - Threshold]",
+      confusion_section,
+      calibration_section,
       "",
       "## Importancia de Variables",
       "- Ranking de variables mas importantes",
@@ -1732,6 +1851,32 @@ generate_report_with_ai <- function(json_path,
       sep = "\n"
     )
   } else {
+
+    # --- English version ---
+    results_sections <- if (is_multi) {
+      paste(
+        "## Model Selection - Which model won and why",
+        "## Hyperparameter Optimization - Optimal values found",
+        "## Final Model Performance - All test metrics",
+        "## ROC Curve - AUC Hand-Till interpretation (per-class curves)",
+        "## Confusion Matrix - N x N error analysis, per-class accuracy",
+        "## Variable Importance - Top predictors",
+        sep = "\n"
+      )
+    } else {
+      paste(
+        "## Model Selection - Which model won and why",
+        "## Hyperparameter Optimization - Optimal values found",
+        "## Final Model Performance - All test metrics",
+        "## ROC Curve - AUC interpretation",
+        "## Confusion Matrix - Error analysis",
+        "## Calibration - Probability reliability",
+        "## Threshold Optimization - Optimal cutoff",
+        "## Variable Importance - Top predictors",
+        sep = "\n"
+      )
+    }
+
     paste(
       "You are a scientific writing expert specialized in Machine Learning.",
       "Generate an academic report in SCIENTIFIC ARTICLE STRUCTURE.",
@@ -1748,14 +1893,7 @@ generate_report_with_ai <- function(json_path,
       "## Data Analysis - Procedure only, NO results",
       "",
       "# RESULTS",
-      "## Model Selection - Which model won and why",
-      "## Hyperparameter Optimization - Optimal values found",
-      "## Final Model Performance - All test metrics",
-      "## ROC Curve - AUC interpretation",
-      "## Confusion Matrix - Error analysis",
-      "## Calibration - Probability reliability",
-      "## Threshold Optimization - Optimal cutoff",
-      "## Variable Importance - Top predictors",
+      results_sections,
       "",
       "# DISCUSSION - Brief key points only",
       "# REFERENCES - APA 7th edition",
@@ -1827,7 +1965,10 @@ generate_report_with_ai <- function(json_path,
     "# DATOS COMPLETOS PARA REPORTE ACADEMICO DE MACHINE LEARNING",
     "",
     "## RESUMEN DEL ESTUDIO",
-    sprintf("Tipo de tarea: %s", ifelse(meta$task == "classification", "Clasificacion binaria", "Regresion")),
+    sprintf("Tipo de tarea: %s", if (meta$task == "classification") {
+      n_cls <- json_data$metadata$n_classes %||% 2L
+      if (n_cls >= 3) paste0("Clasificacion multiclase (", n_cls, " clases)") else "Clasificacion binaria"
+    } else "Regresion"),
     sprintf("Variable objetivo: %s", meta$target),
     sprintf("Total de observaciones: N = %d", meta$n_observations),
     sprintf("Conjunto de entrenamiento: n = %d (%.1f%%)", meta$n_train, meta$n_train/meta$n_observations*100),
@@ -2393,8 +2534,18 @@ explain_with_ai <- function(result,
   }
 
   # --- User message ---
+  # Detectar multiclase
+  n_classes_ai <- 2L
+  if (task == "classification" && !is.null(result$train_data) &&
+      target %in% names(result$train_data)) {
+    n_classes_ai <- length(levels(factor(result$train_data[[target]])))
+  }
+  class_type_label <- if (n_classes_ai >= 3) {
+    sprintf("multiclass (%d classes)", n_classes_ai)
+  } else "binary"
+
   user_sections <- c(
-    sprintf("Task: %s | Target: %s | Best model: %s", task, target, best_model),
+    sprintf("Task: %s (%s) | Target: %s | Best model: %s", task, class_type_label, target, best_model),
     sprintf("Dataset: %s", meta_text),
     "",
     "Test metrics:",

@@ -122,4 +122,4 @@ importFrom(stats, sd, uniroot, plogis, rbinom, rnorm, nls, coef, predict,
            as.formula, model.frame, model.response, model.matrix, reorder,
            shapiro.test, cor, lm, quantile, median, aggregate, glm, binomial)
 importFrom(utils, head)
-importFrom(pROC, roc, auc)
+importFrom(pROC, roc, auc, multiclass.roc)

@@ -2,6 +2,24 @@
 # Funciones auxiliares internas para ml_sample_size
 # =============================================================================
 
+#' Normalize metric name to canonical (yardstick) convention
+#'
+#' Accepts both simple names (auc, f1, kappa, balanced_accuracy, r2) and
+#' yardstick names (roc_auc, f_meas, kap, bal_accuracy, rsq).
+#' Returns the canonical yardstick name.
+#' @noRd
+.normalize_metric <- function(metric) {
+  aliases <- c(
+    "auc"               = "roc_auc",
+    "f1"                = "f_meas",
+    "kappa"             = "kap",
+    "balanced_accuracy" = "bal_accuracy",
+    "r2"                = "rsq"
+  )
+  if (metric %in% names(aliases)) aliases[[metric]] else metric
+}
+
+
 #' Compute fit diagnostics for power law model
 #' @noRd
 .compute_fit_diagnostics <- function(fit, df_summary) {
@@ -134,6 +152,7 @@
 .run_single_partition <- function(pop_data, n_test, n_grid, reps, task, model,
                                    metric, target, target_dir, prob_min, sd_max,
                                    sampling, positive, threshold, model_params,
+                                   mc_info = NULL,
                                    seed, verbose, partition_id = 1) {
 
   # Split: fixed test set
@@ -164,7 +183,8 @@
     for (n in n_grid_valid) {
       for (r in seq_len(reps)) {
         train_data <- .sample_train(pool_data, n = n, task = task,
-                                    sampling = sampling, positive = positive)
+                                    sampling = sampling, positive = positive,
+                                    mc_info = mc_info)
 
         preds <- .fit_predict(
           train_data = train_data,
@@ -172,6 +192,7 @@
           task = task,
           model = current_model,
           model_params = mp,
+          mc_info = mc_info,
           seed = seed + 10000 * partition_id + k
         )
 
@@ -182,7 +203,8 @@
           task = task,
           metric = metric,
           threshold = threshold,
-          positive = positive
+          positive = positive,
+          mc_info = mc_info
         )
 
         raw[[k]] <- data.frame(model = current_model, n = n, rep = r,
@@ -288,7 +310,8 @@
 #' @noRd
 .simulate_population <- function(task, N_pop = 30000, p = 20,
                                   prevalence = 0.20, signal = 2.5,
-                                  noise_sd = 1.0, seed = 123) {
+                                  noise_sd = 1.0, n_classes = 2L,
+                                  class_probs = NULL, seed = 123) {
   set.seed(seed)
 
   X <- matrix(rnorm(N_pop * p), nrow = N_pop, ncol = p)
@@ -302,12 +325,40 @@
   lin <- as.vector(X %*% beta)
 
   if (task == "classification") {
-    # Ajustar intercepto para lograr prevalencia aproximada
-    f <- function(b0) mean(plogis(b0 + lin)) - prevalence
-    b0 <- uniroot(f, interval = c(-20, 20))$root
-    prob <- plogis(b0 + lin)
-    y <- rbinom(N_pop, 1, prob)
-    dat <- data.frame(y = factor(y, levels = c(0, 1)), X)
+    K <- as.integer(n_classes)
+
+    if (K >= 3L) {
+      # --- Multiclass: multinomial logit (softmax) ---
+      if (is.null(class_probs)) class_probs <- rep(1 / K, K)
+      class_probs <- class_probs / sum(class_probs)
+      class_labels <- paste0("class", seq_len(K))
+
+      # K-1 linear predictors (class 1 = reference)
+      directions <- matrix(rnorm(p * (K - 1)), nrow = p, ncol = K - 1)
+      directions <- apply(directions, 2, function(d) d / sqrt(sum(d^2)))
+      eta <- X %*% (directions * signal / sqrt(p))  # N x (K-1)
+
+      # Calibrate intercepts to approximate desired class_probs
+      b0 <- log(class_probs[-1] / class_probs[1])
+
+      # Softmax probabilities
+      log_probs <- cbind(0, sweep(eta, 2, b0, "+"))  # N x K
+      log_probs <- log_probs - apply(log_probs, 1, max)  # numerical stability
+      probs <- exp(log_probs)
+      probs <- probs / rowSums(probs)
+
+      # Sample from multinomial
+      y <- apply(probs, 1, function(pr) sample(class_labels, 1, prob = pr))
+      dat <- data.frame(y = factor(y, levels = class_labels), X)
+
+    } else {
+      # --- Binary (original code) ---
+      f <- function(b0) mean(plogis(b0 + lin)) - prevalence
+      b0 <- uniroot(f, interval = c(-20, 20))$root
+      prob <- plogis(b0 + lin)
+      y <- rbinom(N_pop, 1, prob)
+      dat <- data.frame(y = factor(y, levels = c(0, 1)), X)
+    }
   } else {
     # y continuo con ruido controlable
     y <- lin + rnorm(N_pop, mean = 0, sd = noise_sd)
@@ -330,13 +381,18 @@
     if (!is.factor(y)) {
       y <- factor(y)
     }
-    # Asegurar que positive es un nivel valido
-    if (!positive %in% levels(y)) {
-      levels_str <- paste(levels(y), collapse = ", ")
-      stop("'positive' (", positive, ") no es un nivel valido. Niveles: ", levels_str)
+
+    if (nlevels(y) >= 3L) {
+      # Multiclass: conservar niveles originales, NO recodificar
+      # (positive y threshold se ignoran para multiclase)
+    } else {
+      # Binary: recodificar a 0/1
+      if (!positive %in% levels(y)) {
+        levels_str <- paste(levels(y), collapse = ", ")
+        stop("'positive' (", positive, ") no es un nivel valido. Niveles: ", levels_str)
+      }
+      y <- factor(ifelse(y == positive, "1", "0"), levels = c("0", "1"))
     }
-    # Recodificar a 0/1
-    y <- factor(ifelse(y == positive, "1", "0"), levels = c("0", "1"))
   }
 
   data.frame(y = y, X)
@@ -348,6 +404,7 @@
 .sample_train <- function(pool_data, n, task,
                           sampling = "stratified",
                           positive = "1",
+                          mc_info = NULL,
                           seed = NULL) {
   if (!is.null(seed)) set.seed(seed)
 
@@ -356,7 +413,60 @@
     return(pool_data[idx, , drop = FALSE])
   }
 
-  # Clasificacion con muestreo especial
+  # --- Multiclass sampling ---
+  if (!is.null(mc_info) && mc_info$is_multiclass) {
+    y <- pool_data$y
+    K <- mc_info$n_classes
+    class_levels <- mc_info$class_levels
+
+    if (sampling == "stratified") {
+      # Proportional sampling per class
+      idx <- integer(0)
+      remaining <- n
+      for (i in seq_len(K)) {
+        cl_idx <- which(y == class_levels[i])
+        prop_cl <- length(cl_idx) / length(y)
+        if (i < K) {
+          n_cl <- max(1L, round(n * prop_cl))
+          n_cl <- min(n_cl, length(cl_idx), remaining)
+        } else {
+          n_cl <- min(remaining, length(cl_idx))
+        }
+        if (n_cl > 0) {
+          idx <- c(idx, sample(cl_idx, n_cl, replace = FALSE))
+        }
+        remaining <- remaining - n_cl
+      }
+      return(pool_data[idx, , drop = FALSE])
+    }
+
+    if (sampling == "down") {
+      # Equal size per class: min(n/K, smallest class)
+      n_per <- floor(n / K)
+      idx <- integer(0)
+      for (cl in class_levels) {
+        cl_idx <- which(y == cl)
+        n_cl <- min(n_per, length(cl_idx))
+        idx <- c(idx, sample(cl_idx, n_cl, replace = FALSE))
+      }
+      return(pool_data[idx, , drop = FALSE])
+    }
+
+    if (sampling == "up") {
+      # Oversample each class to n/K with replacement
+      n_per <- floor(n / K)
+      idx <- integer(0)
+      for (cl in class_levels) {
+        cl_idx <- which(y == cl)
+        idx <- c(idx, sample(cl_idx, n_per, replace = TRUE))
+      }
+      return(pool_data[idx, , drop = FALSE])
+    }
+
+    stop("sampling no reconocido: ", sampling)
+  }
+
+  # --- Binary sampling (original code) ---
   y <- pool_data$y
   pos_idx <- which(y == positive)
   neg_idx <- which(y != positive)
@@ -409,23 +519,23 @@
 #' Entrenar modelo y predecir
 #' @noRd
 .fit_predict <- function(train_data, test_data, task, model,
-                         model_params, seed = NULL) {
+                         model_params, mc_info = NULL, seed = NULL) {
   if (!is.null(seed)) set.seed(seed)
 
   if (model == "rf") {
-    return(.fit_predict_rf(train_data, test_data, task, model_params))
+    return(.fit_predict_rf(train_data, test_data, task, model_params, mc_info))
   }
 
   if (model == "xgboost") {
-    return(.fit_predict_xgb(train_data, test_data, task, model_params))
+    return(.fit_predict_xgb(train_data, test_data, task, model_params, mc_info))
   }
 
   if (model == "svm") {
-    return(.fit_predict_svm(train_data, test_data, task, model_params))
+    return(.fit_predict_svm(train_data, test_data, task, model_params, mc_info))
   }
 
   if (model == "glm") {
-    return(.fit_predict_glm(train_data, test_data, task))
+    return(.fit_predict_glm(train_data, test_data, task, mc_info))
   }
 
   stop("Modelo no soportado: ", model)
@@ -434,7 +544,8 @@
 
 #' Entrenar Random Forest y predecir
 #' @noRd
-.fit_predict_rf <- function(train_data, test_data, task, model_params) {
+.fit_predict_rf <- function(train_data, test_data, task, model_params,
+                            mc_info = NULL) {
   mtry <- model_params$mtry
   if (is.null(mtry)) {
     mtry <- floor(sqrt(ncol(train_data) - 1))
@@ -450,7 +561,14 @@
       min.node.size = model_params$min.node.size,
       max.depth = if (model_params$max.depth == 0) NULL else model_params$max.depth
     )
-    pred <- predict(fit, data = test_data)$predictions[, "1"]
+
+    if (!is.null(mc_info) && mc_info$is_multiclass) {
+      # Multiclass: return full N x K probability matrix
+      pred <- predict(fit, data = test_data)$predictions[, mc_info$class_levels, drop = FALSE]
+    } else {
+      # Binary: return vector of P(class=1)
+      pred <- predict(fit, data = test_data)$predictions[, "1"]
+    }
   } else {
     fit <- ranger::ranger(
       y ~ .,
@@ -469,31 +587,62 @@
 
 #' Entrenar XGBoost y predecir
 #' @noRd
-.fit_predict_xgb <- function(train_data, test_data, task, model_params) {
+.fit_predict_xgb <- function(train_data, test_data, task, model_params,
+                             mc_info = NULL) {
   # Preparar matrices
   X_train <- as.matrix(train_data[, -1, drop = FALSE])
   X_test <- as.matrix(test_data[, -1, drop = FALSE])
 
   if (task == "classification") {
-    y_train <- as.numeric(as.character(train_data$y))
-    dtrain <- xgboost::xgb.DMatrix(data = X_train, label = y_train)
-    dtest <- xgboost::xgb.DMatrix(data = X_test)
 
-    params <- list(
-      objective = "binary:logistic",
-      eval_metric = "auc",
-      max_depth = if (model_params$max.depth == 0) 6 else model_params$max.depth,
-      eta = 0.1
-    )
+    if (!is.null(mc_info) && mc_info$is_multiclass) {
+      # Multiclass: multi:softprob
+      K <- mc_info$n_classes
+      y_train <- as.integer(train_data$y) - 1L  # 0-indexed
+      dtrain <- xgboost::xgb.DMatrix(data = X_train, label = y_train)
+      dtest <- xgboost::xgb.DMatrix(data = X_test)
 
-    fit <- xgboost::xgb.train(
-      params = params,
-      data = dtrain,
-      nrounds = model_params$num.trees %/% 10,
-      verbose = 0
-    )
+      params <- list(
+        objective = "multi:softprob",
+        num_class = K,
+        eval_metric = "mlogloss",
+        max_depth = if (model_params$max.depth == 0) 6 else model_params$max.depth,
+        eta = 0.1
+      )
 
-    pred <- predict(fit, dtest)
+      fit <- xgboost::xgb.train(
+        params = params,
+        data = dtrain,
+        nrounds = model_params$num.trees %/% 10,
+        verbose = 0
+      )
+
+      raw_pred <- predict(fit, dtest)
+      pred <- matrix(raw_pred, ncol = K, byrow = TRUE)
+      colnames(pred) <- mc_info$class_levels
+
+    } else {
+      # Binary (original code)
+      y_train <- as.numeric(as.character(train_data$y))
+      dtrain <- xgboost::xgb.DMatrix(data = X_train, label = y_train)
+      dtest <- xgboost::xgb.DMatrix(data = X_test)
+
+      params <- list(
+        objective = "binary:logistic",
+        eval_metric = "auc",
+        max_depth = if (model_params$max.depth == 0) 6 else model_params$max.depth,
+        eta = 0.1
+      )
+
+      fit <- xgboost::xgb.train(
+        params = params,
+        data = dtrain,
+        nrounds = model_params$num.trees %/% 10,
+        verbose = 0
+      )
+
+      pred <- predict(fit, dtest)
+    }
   } else {
     y_train <- train_data$y
     dtrain <- xgboost::xgb.DMatrix(data = X_train, label = y_train)
@@ -521,11 +670,20 @@
 
 #' Entrenar SVM y predecir
 #' @noRd
-.fit_predict_svm <- function(train_data, test_data, task, model_params) {
+.fit_predict_svm <- function(train_data, test_data, task, model_params,
+                             mc_info = NULL) {
   if (task == "classification") {
     fit <- e1071::svm(y ~ ., data = train_data, probability = TRUE, kernel = "radial")
     pred_obj <- predict(fit, test_data, probability = TRUE)
-    pred <- attr(pred_obj, "probabilities")[, "1"]
+    prob_mat <- attr(pred_obj, "probabilities")
+
+    if (!is.null(mc_info) && mc_info$is_multiclass) {
+      # Multiclass: return full N x K probability matrix with consistent column order
+      pred <- prob_mat[, mc_info$class_levels, drop = FALSE]
+    } else {
+      # Binary: return vector of P(class=1)
+      pred <- prob_mat[, "1"]
+    }
   } else {
     fit <- e1071::svm(y ~ ., data = train_data, kernel = "radial")
     pred <- predict(fit, test_data)
@@ -537,10 +695,27 @@
 
 #' Entrenar GLM y predecir
 #' @noRd
-.fit_predict_glm <- function(train_data, test_data, task) {
+.fit_predict_glm <- function(train_data, test_data, task, mc_info = NULL) {
   if (task == "classification") {
-    fit <- glm(y ~ ., data = train_data, family = binomial(link = "logit"))
-    pred <- predict(fit, newdata = test_data, type = "response")
+
+    if (!is.null(mc_info) && mc_info$is_multiclass) {
+      # Multiclass: use nnet::multinom
+      if (!requireNamespace("nnet", quietly = TRUE)) {
+        stop("Paquete 'nnet' requerido para GLM multiclase. Instalar con: install.packages('nnet')")
+      }
+      fit <- nnet::multinom(y ~ ., data = train_data, trace = FALSE)
+      pred <- predict(fit, newdata = test_data, type = "probs")
+      # If only 1 observation, predict returns a named vector instead of matrix
+      if (is.null(dim(pred))) {
+        pred <- matrix(pred, nrow = 1, dimnames = list(NULL, names(pred)))
+      }
+      # Ensure column order matches class_levels
+      pred <- pred[, mc_info$class_levels, drop = FALSE]
+    } else {
+      # Binary (original code)
+      fit <- glm(y ~ ., data = train_data, family = binomial(link = "logit"))
+      pred <- predict(fit, newdata = test_data, type = "response")
+    }
   } else {
     fit <- lm(y ~ ., data = train_data)
     pred <- predict(fit, newdata = test_data)
@@ -551,14 +726,108 @@
 
 
 #' Calcular metrica de evaluacion
+#'
+#' Uses canonical metric names (yardstick convention):
+#'   roc_auc, accuracy, f_meas, kap, mcc, bal_accuracy (classification)
+#'   rmse, mae, rsq (regression)
 #' @noRd
 .compute_metric <- function(y_true, y_pred, task, metric,
-                            threshold = 0.5, positive = "1") {
+                            threshold = 0.5, positive = "1",
+                            mc_info = NULL) {
 
   if (task == "classification") {
+
+    # --- Multiclass path ---
+    if (!is.null(mc_info) && mc_info$is_multiclass) {
+      # y_pred is an N x K probability matrix
+      class_levels <- mc_info$class_levels
+      K <- mc_info$n_classes
+      y_true <- factor(y_true, levels = class_levels)
+
+      if (metric == "roc_auc") {
+        # Hand-Till multiclass AUC via pROC
+        return(as.numeric(pROC::multiclass.roc(y_true, y_pred, quiet = TRUE)$auc))
+      }
+
+      # Predicted class = argmax of probability matrix
+      y_hat <- class_levels[apply(y_pred, 1, which.max)]
+      y_hat <- factor(y_hat, levels = class_levels)
+
+      if (metric == "accuracy") {
+        return(mean(y_hat == y_true))
+      }
+
+      if (metric == "f_meas") {
+        # Macro-F1: average of per-class F1 (one-vs-rest)
+        f1_per_class <- vapply(class_levels, function(cl) {
+          tp <- sum(y_hat == cl & y_true == cl)
+          fp <- sum(y_hat == cl & y_true != cl)
+          fn <- sum(y_hat != cl & y_true == cl)
+          prec <- if (tp + fp == 0) 0 else tp / (tp + fp)
+          rec  <- if (tp + fn == 0) 0 else tp / (tp + fn)
+          if (prec + rec == 0) 0 else 2 * prec * rec / (prec + rec)
+        }, numeric(1))
+        return(mean(f1_per_class))
+      }
+
+      # Confusion matrix for kap, mcc, bal_accuracy
+      if (metric %in% c("kap", "mcc", "bal_accuracy")) {
+        N <- length(y_true)
+        # Build K x K confusion matrix: C[i,j] = count(true=i, pred=j)
+        C <- table(True = y_true, Pred = y_hat)
+        # Ensure full K x K even if some classes absent in predictions
+        full_C <- matrix(0L, nrow = K, ncol = K,
+                         dimnames = list(class_levels, class_levels))
+        for (r in rownames(C)) {
+          for (cc in colnames(C)) {
+            full_C[r, cc] <- C[r, cc]
+          }
+        }
+        C <- full_C
+      }
+
+      if (metric == "kap") {
+        # Cohen's Kappa: (accuracy - p_e) / (1 - p_e)
+        N <- sum(C)
+        acc <- sum(diag(C)) / N
+        # Expected accuracy under independence
+        row_sums <- rowSums(C)
+        col_sums <- colSums(C)
+        p_e <- sum(row_sums * col_sums) / (N^2)
+        if (p_e == 1) return(NA_real_)
+        return((acc - p_e) / (1 - p_e))
+      }
+
+      if (metric == "mcc") {
+        # Generalized MCC for K x K confusion matrix (Gorodkin, 2004)
+        N <- sum(C)
+        c_correct <- sum(diag(C))  # trace
+        s <- N  # total
+        p_k <- colSums(C)  # column sums (predicted)
+        t_k <- rowSums(C)  # row sums (true)
+        denom <- sqrt(s^2 - sum(p_k^2)) * sqrt(s^2 - sum(t_k^2))
+        if (denom == 0) return(NA_real_)
+        return((c_correct * s - sum(p_k * t_k)) / denom)
+      }
+
+      if (metric == "bal_accuracy") {
+        # Mean per-class recall (sensitivity)
+        recall_per_class <- vapply(class_levels, function(cl) {
+          tp <- sum(y_hat == cl & y_true == cl)
+          fn <- sum(y_hat != cl & y_true == cl)
+          if (tp + fn == 0) return(0)
+          tp / (tp + fn)
+        }, numeric(1))
+        return(mean(recall_per_class))
+      }
+
+      stop("Metrica de clasificacion no soportada: ", metric)
+    }
+
+    # --- Binary path ---
     y_true <- factor(y_true, levels = c("0", "1"))
 
-    if (metric == "auc") {
+    if (metric == "roc_auc") {
       return(as.numeric(pROC::auc(pROC::roc(y_true, y_pred, quiet = TRUE))))
     }
 
@@ -575,11 +844,34 @@
       return((tp + tn) / (tp + tn + fp + fn))
     }
 
-    if (metric == "f1") {
+    if (metric == "f_meas") {
       prec <- if (tp + fp == 0) NA else tp / (tp + fp)
       rec <- if (tp + fn == 0) NA else tp / (tp + fn)
       f1 <- if (is.na(prec) || is.na(rec) || (prec + rec) == 0) NA else 2 * prec * rec / (prec + rec)
       return(f1)
+    }
+
+    if (metric == "kap") {
+      # Cohen's Kappa (binary)
+      N <- tp + tn + fp + fn
+      acc <- (tp + tn) / N
+      p_e <- ((tp + fp) * (tp + fn) + (tn + fn) * (tn + fp)) / (N^2)
+      if (p_e == 1) return(NA_real_)
+      return((acc - p_e) / (1 - p_e))
+    }
+
+    if (metric == "mcc") {
+      # Matthews Correlation Coefficient (binary)
+      denom <- sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+      if (denom == 0) return(NA_real_)
+      return((tp * tn - fp * fn) / denom)
+    }
+
+    if (metric == "bal_accuracy") {
+      # (Sensitivity + Specificity) / 2
+      sens <- if (tp + fn == 0) 0 else tp / (tp + fn)
+      spec <- if (tn + fp == 0) 0 else tn / (tn + fp)
+      return((sens + spec) / 2)
     }
 
     stop("Metrica de clasificacion no soportada: ", metric)
@@ -590,7 +882,7 @@
 
   if (metric == "rmse") return(sqrt(mean(err^2)))
   if (metric == "mae") return(mean(abs(err)))
-  if (metric == "r2") {
+  if (metric == "rsq") {
     ss_res <- sum(err^2)
     ss_tot <- sum((y_true - mean(y_true))^2)
     return(1 - ss_res / ss_tot)

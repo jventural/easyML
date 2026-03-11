@@ -288,6 +288,7 @@ tune_best_model <- function(modeling_result,
       yardstick::roc_auc,
       yardstick::accuracy,
       yardstick::mcc,
+      yardstick::kap,
       f2_meas
     )
     select_metric <- "roc_auc"

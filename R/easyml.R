@@ -19,7 +19,8 @@
 #' @param select_metric Metrica para seleccionar el mejor modelo. Para clasificacion:
 #'   "roc_auc" (default), "f_meas" (F1), "f2_meas" (F2, prioriza recall),
 #'   "accuracy", "sensitivity", "specificity", "bal_accuracy" (Balanced Accuracy),
-#'   "pr_auc" (Precision-Recall AUC), "mcc" (Matthews Correlation Coefficient).
+#'   "pr_auc" (Precision-Recall AUC), "mcc" (Matthews Correlation Coefficient),
+#'   "kap" (Cohen's Kappa).
 #'   Para regresion: "rmse" (default), "rsq", "mae".
 #' @param tune_best Realizar tuning del mejor modelo (default: TRUE).
 #' @param tune_method Metodo de busqueda de hiperparametros: "random" (Random Search),
@@ -311,7 +312,7 @@ easy_ml <- function(data,
     select_metric <- if (task == "classification") "roc_auc" else "rmse"
   } else {
     valid_class_metrics <- c("roc_auc", "f_meas", "f2_meas", "accuracy", "sensitivity",
-                              "specificity", "bal_accuracy", "pr_auc", "mcc")
+                              "specificity", "bal_accuracy", "pr_auc", "mcc", "kap")
     valid_reg_metrics <- c("rmse", "rsq", "mae")
 
     if (task == "classification" && !select_metric %in% valid_class_metrics) {

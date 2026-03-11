@@ -179,6 +179,7 @@ fit_models_cv <- function(model_specs, recipe, cv_folds, task, verbose = TRUE) {
         yardstick::bal_accuracy,
         yardstick::pr_auc,
         yardstick::mcc,
+        yardstick::kap,
         f2_meas
       )
     } else {
@@ -191,6 +192,7 @@ fit_models_cv <- function(model_specs, recipe, cv_folds, task, verbose = TRUE) {
         yardstick::f_meas,
         yardstick::bal_accuracy,
         yardstick::mcc,
+        yardstick::kap,
         f2_meas
       )
     }
@@ -262,6 +264,7 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
     bal_accuracy = "Balanced Accuracy",
     pr_auc = "PR-AUC",
     mcc = "MCC",
+    kap = "Cohen's Kappa",
     rmse = "RMSE",
     rsq = "R-squared",
     mae = "MAE"
@@ -278,6 +281,7 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
     bal_accuracy = "Promedio de sensitivity y specificity",
     pr_auc = "Ideal para desbalance severo (clases muy desiguales)",
     mcc = "Correlacion entre prediccion y realidad, robusto a desbalance (-1 a 1)",
+    kap = "Acuerdo corregido por azar, robusto a desbalance (-1 a 1)",
     rmse = "Penaliza errores grandes, en unidades originales",
     rsq = "Proporcion de varianza explicada (0-1)",
     mae = "Error promedio absoluto, robusto a outliers"
@@ -285,7 +289,7 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
 
   # Metricas que se maximizan vs minimizan
   maximize_metrics <- c("roc_auc", "f_meas", "f2_meas", "accuracy", "sensitivity",
-                        "specificity", "bal_accuracy", "pr_auc", "mcc", "rsq")
+                        "specificity", "bal_accuracy", "pr_auc", "mcc", "kap", "rsq")
 
   # Recopilar metricas de todos los modelos
   all_metrics <- lapply(names(cv_results), function(model_name) {
@@ -326,6 +330,7 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
       cat("      - f_meas:       F1-Score, balance entre precision y recall\n")
       cat("      - f2_meas:      F2-Score, como F1 pero prioriza recall\n")
       cat("      - mcc:          Matthews Correlation Coefficient (-1 a 1)\n")
+      cat("      - kap:          Cohen's Kappa, acuerdo corregido por azar (-1 a 1)\n")
       if ("pr_auc" %in% names(summary_df)) {
         cat("      - pr_auc:       Area bajo curva Precision-Recall\n")
       }
@@ -432,6 +437,17 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
     if (value >= 0.10) return("Debil: baja correlacion entre predicciones y valores reales")
     if (value >= 0) return("Muy debil: el modelo apenas supera al azar")
     return("Negativo: el modelo predice peor que el azar (predicciones inversas)")
+  }
+
+  # Kappa: acuerdo corregido por azar (-1 a 1)
+  if (metric == "kap") {
+    if (value >= 0.99) return("[!] ADVERTENCIA: Valor sospechosamente alto (posible overfitting o data leakage). Revise los datos.")
+    if (value >= 0.81) return("Excelente: acuerdo casi perfecto con la realidad")
+    if (value >= 0.61) return("Bueno: acuerdo sustancial con la realidad")
+    if (value >= 0.41) return("Aceptable: acuerdo moderado con la realidad")
+    if (value >= 0.21) return("Debil: acuerdo bajo con la realidad")
+    if (value >= 0) return("Muy debil: el modelo apenas supera al azar")
+    return("Negativo: el modelo predice peor que el azar")
   }
 
   # F2-Score: como F1 pero prioriza recall (detectar positivos)

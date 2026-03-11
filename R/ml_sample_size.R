@@ -9,8 +9,11 @@
 #' @param task Task type: "classification" or "regression".
 #' @param model Model to use: "rf" (Random Forest), "xgboost", "svm", "glm".
 #'   Can be a vector to compare multiple models.
-#' @param metric Evaluation metric. For classification: "auc", "accuracy", "f1".
-#'   For regression: "rmse", "mae", "r2".
+#' @param metric Evaluation metric (uses yardstick naming convention).
+#'   For classification: "roc_auc", "accuracy", "f_meas", "kap" (Cohen's Kappa),
+#'   "mcc" (Matthews Correlation Coefficient), "bal_accuracy" (mean per-class recall).
+#'   For regression: "rmse", "mae", "rsq".
+#'   Aliases accepted: auc, f1, kappa, balanced_accuracy, r2.
 #' @param n_grid Vector with sample sizes to test.
 #' @param reps Number of Monte Carlo repetitions per sample size. Recommendations:
 #'   R=50 for exploratory analysis (SE~0.057), R=100 for standard (SE~0.040),
@@ -32,10 +35,14 @@
 #'   \itemize{
 #'     \item N_pop: Population size to simulate (default 30000)
 #'     \item p: Number of predictors (default 20)
-#'     \item prevalence: Positive class prevalence (default 0.20)
+#'     \item prevalence: Positive class prevalence for binary (default 0.20)
 #'     \item signal: Signal strength (default 2.5). Determines max achievable AUC:
 #'       signal=1.5 -> AUC~0.70-0.75, signal=2.5 -> AUC~0.85-0.90, signal=3.5 -> AUC~0.92-0.95
 #'     \item noise_sd: Noise SD for regression (default 1.0)
+#'     \item n_classes: Number of classes for classification (default 2).
+#'       When >= 3, uses multinomial logit (softmax) simulation.
+#'     \item class_probs: Numeric vector of class probabilities for multiclass
+#'       (default: equal probabilities 1/K). Ignored for binary.
 #'   }
 #' @param model_params List with model hyperparameters:
 #'   \itemize{
@@ -78,7 +85,7 @@
 #' # Example with simulated data (classification)
 #' result <- ml_sample_size(
 #'   task = "classification",
-#'   metric = "auc",
+#'   metric = "roc_auc",
 #'   n_grid = c(100, 200, 300, 400, 600, 800, 1000),
 #'   reps = 100,
 #'   target = 0.80,
@@ -96,7 +103,7 @@
 #'   data = my_dataset,
 #'   formula = outcome ~ .,
 #'   task = "classification",
-#'   metric = "auc",
+#'   metric = "roc_auc",
 #'   target = 0.75,
 #'   n_outer_splits = 5,
 #'   bootstrap_ci = TRUE
@@ -155,18 +162,23 @@ ml_sample_size <- function(data = NULL,
 
   # Default metric
   if (is.null(metric)) {
-    metric <- if (task == "classification") "auc" else "rmse"
+    metric <- if (task == "classification") "roc_auc" else "rmse"
   }
+
+  # Normalize metric name (accept aliases: auc, f1, kappa, balanced_accuracy, r2)
+  metric <- .normalize_metric(metric)
 
   # Validate metric
-  valid_metrics_class <- c("auc", "accuracy", "f1")
-  valid_metrics_reg <- c("rmse", "mae", "r2")
+  valid_metrics_class <- c("roc_auc", "accuracy", "f_meas", "kap", "mcc", "bal_accuracy")
+  valid_metrics_reg <- c("rmse", "mae", "rsq")
 
   if (task == "classification" && !metric %in% valid_metrics_class) {
-    stop("For classification, metric must be: ", paste(valid_metrics_class, collapse = ", "))
+    stop("For classification, metric must be: ", paste(valid_metrics_class, collapse = ", "),
+         "\n  (aliases accepted: auc, f1, kappa, balanced_accuracy)")
   }
   if (task == "regression" && !metric %in% valid_metrics_reg) {
-    stop("For regression, metric must be: ", paste(valid_metrics_reg, collapse = ", "))
+    stop("For regression, metric must be: ", paste(valid_metrics_reg, collapse = ", "),
+         "\n  (aliases accepted: r2)")
   }
 
   # Auto-detect target direction
@@ -187,6 +199,8 @@ ml_sample_size <- function(data = NULL,
       prevalence = sim_params$prevalence %||% 0.20,
       signal = sim_params$signal %||% 2.5,
       noise_sd = sim_params$noise_sd %||% 1.0,
+      n_classes = sim_params$n_classes %||% 2L,
+      class_probs = sim_params$class_probs,
       seed = seed
     )
   } else {
@@ -194,6 +208,26 @@ ml_sample_size <- function(data = NULL,
       stop("Must specify 'formula' when using real data")
     }
     pop_data <- .prepare_real_data(data, formula, task, positive)
+  }
+
+  # Build mc_info for multiclass support
+  mc_info <- NULL
+  if (task == "classification") {
+    class_levels <- levels(pop_data$y)
+    n_classes <- length(class_levels)
+    mc_info <- list(
+      n_classes = n_classes,
+      class_levels = class_levels,
+      is_multiclass = n_classes >= 3L
+    )
+
+    if (mc_info$is_multiclass) {
+      if (verbose) {
+        message("\nMulticlass detected: ", n_classes, " classes (",
+                paste(class_levels, collapse = ", "), ")")
+        message("  Note: 'positive' and 'threshold' are ignored for multiclass.")
+      }
+    }
   }
 
   # Validate n_test
@@ -257,6 +291,7 @@ ml_sample_size <- function(data = NULL,
         positive = positive,
         threshold = threshold,
         model_params = model_params,
+        mc_info = mc_info,
         seed = seed + s * 1000,
         verbose = FALSE,
         partition_id = s
@@ -421,7 +456,9 @@ ml_sample_size <- function(data = NULL,
         n_test = n_test,
         n_outer_splits = n_outer_splits,
         bootstrap_ci = bootstrap_ci,
-        n_boot = n_boot
+        n_boot = n_boot,
+        n_classes = if (!is.null(mc_info)) mc_info$n_classes else NULL,
+        class_levels = if (!is.null(mc_info)) mc_info$class_levels else NULL
       )
     )
 
@@ -473,7 +510,8 @@ ml_sample_size <- function(data = NULL,
     for (n in n_grid) {
       for (r in seq_len(reps)) {
         train_data <- .sample_train(pool_data, n = n, task = task,
-                                    sampling = sampling, positive = positive)
+                                    sampling = sampling, positive = positive,
+                                    mc_info = mc_info)
 
         preds <- .fit_predict(
           train_data = train_data,
@@ -481,6 +519,7 @@ ml_sample_size <- function(data = NULL,
           task = task,
           model = current_model,
           model_params = mp,
+          mc_info = mc_info,
           seed = seed + 10000 + k
         )
 
@@ -491,7 +530,8 @@ ml_sample_size <- function(data = NULL,
           task = task,
           metric = metric,
           threshold = threshold,
-          positive = positive
+          positive = positive,
+          mc_info = mc_info
         )
 
         raw[[k]] <- data.frame(model = current_model, n = n, rep = r, metric_value = val)
@@ -714,7 +754,9 @@ ml_sample_size <- function(data = NULL,
       n_test = n_test,
       n_outer_splits = n_outer_splits,
       bootstrap_ci = bootstrap_ci,
-      n_boot = n_boot
+      n_boot = n_boot,
+      n_classes = if (!is.null(mc_info)) mc_info$n_classes else NULL,
+      class_levels = if (!is.null(mc_info)) mc_info$class_levels else NULL
     )
   )
 
