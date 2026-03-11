@@ -823,7 +823,8 @@ plot_metrics_profile <- function(x, metrics = NULL, highlight = NULL,
     accuracy = "Accuracy", sensitivity = "Sensitivity",
     specificity = "Specificity", bal_accuracy = "Bal. Accuracy",
     pr_auc = "PR-AUC", mcc = "MCC", kap = "Kappa",
-    rmse = "RMSE", rsq = "R\u00b2", mae = "MAE", mape = "MAPE"
+    rmse = "RMSE", rsq = "R\u00b2", mae = "MAE", mape = "MAPE",
+    rank_mean = "Rank Promedio"
   )
 
   # Seleccionar metricas

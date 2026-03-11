@@ -280,7 +280,8 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
     kap = "Cohen's Kappa",
     rmse = "RMSE",
     rsq = "R-squared",
-    mae = "MAE"
+    mae = "MAE",
+    rank_mean = "Ranking Promedio"
   )
 
   # Descripciones de cuando usar cada metrica
@@ -297,7 +298,8 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
     kap = "Acuerdo corregido por azar, robusto a desbalance (-1 a 1)",
     rmse = "Penaliza errores grandes, en unidades originales",
     rsq = "Proporcion de varianza explicada (0-1)",
-    mae = "Error promedio absoluto, robusto a outliers"
+    mae = "Error promedio absoluto, robusto a outliers",
+    rank_mean = "Ranking promedio a traves de todas las metricas (menor = mejor en mas metricas)"
   )
 
   # Metricas que se maximizan vs minimizan
@@ -318,8 +320,29 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
     dplyr::select(model, .metric, mean) |>
     tidyr::pivot_wider(names_from = .metric, values_from = mean)
 
+  # Calcular rank_mean: ranking promedio a traves de todas las metricas
+  metric_cols <- setdiff(names(summary_df)[vapply(summary_df, is.numeric, logical(1))], "model")
+  if (length(metric_cols) > 0) {
+    minimize_metrics <- c("rmse", "mae", "mape")
+    rank_mat <- sapply(metric_cols, function(m) {
+      if (m %in% minimize_metrics) {
+        rank(summary_df[[m]], ties.method = "average")
+      } else {
+        rank(-summary_df[[m]], ties.method = "average")
+      }
+    })
+    if (is.matrix(rank_mat)) {
+      summary_df$rank_mean <- round(rowMeans(rank_mat), 2)
+    } else {
+      summary_df$rank_mean <- rank_mat
+    }
+  }
+
   # Ordenar segun la metrica seleccionada
-  if (select_metric %in% maximize_metrics) {
+  if (select_metric == "rank_mean") {
+    summary_df <- summary_df |>
+      dplyr::arrange(rank_mean)
+  } else if (select_metric %in% maximize_metrics) {
     summary_df <- summary_df |>
       dplyr::arrange(dplyr::desc(!!rlang::sym(select_metric)))
   } else {
@@ -356,30 +379,50 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
       cat("      - mae:  Error absoluto medio (robusto a outliers)\n")
     }
 
+    # Mostrar rank_mean en la leyenda si existe
+    if ("rank_mean" %in% names(summary_df)) {
+      cat("      - rank_mean:    Ranking promedio (menor = mejor en mas metricas)\n")
+    }
+
     cat("\n    Mejor modelo seleccionado por:", metric_labels[select_metric], "\n")
     cat("    Mejor modelo:", .get_model_label(best_model), "\n")
     cat("   ", metric_labels[select_metric], ":", round(best_metric_value, 4), "\n")
 
-    # Interpretacion del valor de la metrica
-    interpretation <- .interpret_metric_value(select_metric, best_metric_value)
-    cat("    Interpretacion:", interpretation, "\n\n")
+    if (select_metric == "rank_mean") {
+      # Para rank_mean, mostrar en cuantas metricas gana el mejor modelo
+      n_metrics <- length(metric_cols)
+      n_wins <- sum(sapply(metric_cols, function(m) {
+        if (m %in% c("rmse", "mae", "mape")) {
+          which.min(summary_df[[m]]) == 1
+        } else {
+          which.max(summary_df[[m]]) == 1
+        }
+      }))
+      cat("    El modelo es #1 en", n_wins, "de", n_metrics, "metricas\n\n")
+    } else {
+      # Interpretacion del valor de la metrica
+      interpretation <- .interpret_metric_value(select_metric, best_metric_value)
+      cat("    Interpretacion:", interpretation, "\n\n")
+    }
 
-    # Diagnostico de estabilidad entre folds (varianza CV)
-    best_row <- metrics_df[metrics_df$model == best_model & metrics_df$.metric == select_metric, ]
-    if (nrow(best_row) > 0 && !is.na(best_row$std_err[1]) && best_row$mean[1] != 0) {
-      n_folds <- best_row$n[1]
-      std_err_val <- best_row$std_err[1]
-      mean_val <- best_row$mean[1]
-      cv_pct <- abs(std_err_val * sqrt(n_folds) / mean_val) * 100
+    # Diagnostico de estabilidad entre folds (varianza CV) -- no aplica para rank_mean
+    if (select_metric != "rank_mean") {
+      best_row <- metrics_df[metrics_df$model == best_model & metrics_df$.metric == select_metric, ]
+      if (nrow(best_row) > 0 && !is.na(best_row$std_err[1]) && best_row$mean[1] != 0) {
+        n_folds <- best_row$n[1]
+        std_err_val <- best_row$std_err[1]
+        mean_val <- best_row$mean[1]
+        cv_pct <- abs(std_err_val * sqrt(n_folds) / mean_val) * 100
 
-      cat("    Estabilidad entre folds (CV%): ", round(cv_pct, 1), "%\n", sep = "")
-      if (cv_pct < 5) {
-        cat("    [ok] Modelo estable entre folds\n\n")
-      } else if (cv_pct <= 15) {
-        cat("    [~] Variabilidad moderada entre folds -- el modelo podria ser inestable\n\n")
-      } else {
-        cat("    [!] ADVERTENCIA: Alta variabilidad entre folds -- rendimiento inestable\n")
-        cat("    Considere: aumentar los datos de entrenamiento o simplificar el modelo\n\n")
+        cat("    Estabilidad entre folds (CV%): ", round(cv_pct, 1), "%\n", sep = "")
+        if (cv_pct < 5) {
+          cat("    [ok] Modelo estable entre folds\n\n")
+        } else if (cv_pct <= 15) {
+          cat("    [~] Variabilidad moderada entre folds -- el modelo podria ser inestable\n\n")
+        } else {
+          cat("    [!] ADVERTENCIA: Alta variabilidad entre folds -- rendimiento inestable\n")
+          cat("    Considere: aumentar los datos de entrenamiento o simplificar el modelo\n\n")
+        }
       }
     }
 
