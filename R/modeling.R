@@ -59,6 +59,7 @@ train_models <- function(preprocess_result,
     recipe = recipe,
     cv_folds = cv_result,
     task = task,
+    select_metric = select_metric,
     verbose = verbose
   )
   results$cv_results <- cv_results
@@ -156,7 +157,7 @@ define_models <- function(models, task, verbose = TRUE) {
 
 #' @title Entrenar Modelos con CV
 #' @export
-fit_models_cv <- function(model_specs, recipe, cv_folds, task, verbose = TRUE) {
+fit_models_cv <- function(model_specs, recipe, cv_folds, task, select_metric = NULL, verbose = TRUE) {
 
   # Detectar numero de niveles del target
   target_var <- recipe$var_info$variable[recipe$var_info$role == "outcome"]
@@ -230,16 +231,25 @@ fit_models_cv <- function(model_specs, recipe, cv_folds, task, verbose = TRUE) {
 
     if (verbose) {
       metrics <- tune::collect_metrics(cv_result)
-      # Mostrar metrica MCC/rsq si existe, sino fallback a roc_auc/rmse
-      show_metric <- if (task == "classification") "mcc" else "rsq"
-      show_label <- if (task == "classification") "MCC" else "R2"
-      val <- metrics$mean[metrics$.metric == show_metric]
-      if (length(val) == 0) {
-        show_metric <- if (task == "classification") "roc_auc" else "rmse"
-        show_label <- if (task == "classification") "AUC" else "RMSE"
-        val <- metrics$mean[metrics$.metric == show_metric]
+      # Mostrar la metrica seleccionada por el usuario
+      show_metric <- select_metric
+      if (is.null(show_metric)) {
+        show_metric <- if (task == "classification") "mcc" else "rsq"
       }
-      cat(paste0(" ", show_label, " = ", round(val, 3), "\n"))
+      metric_labels_cv <- c(
+        roc_auc = "AUC", mcc = "MCC", f_meas = "F1", f2_meas = "F2",
+        accuracy = "Acc", sensitivity = "Sens", specificity = "Spec",
+        bal_accuracy = "BalAcc", pr_auc = "PR-AUC", kap = "Kappa",
+        rmse = "RMSE", rsq = "R2", mae = "MAE"
+      )
+      show_label <- metric_labels_cv[show_metric]
+      if (is.na(show_label)) show_label <- toupper(show_metric)
+      val <- metrics$mean[metrics$.metric == show_metric]
+      if (length(val) > 0) {
+        cat(paste0(" ", show_label, " = ", round(val, 3), "\n"))
+      } else {
+        cat("\n")
+      }
     }
   }
 
