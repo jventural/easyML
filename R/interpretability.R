@@ -194,10 +194,17 @@ calculate_shap <- function(final_fit,
     }
   }
 
+  # Guardar test_sample solo con predictores y row-names limpios
+  # para que shapviz no tenga discrepancia de filas
+  test_sample_clean <- as.data.frame(test_sample[, predictors, drop = FALSE])
+  rownames(test_sample_clean) <- NULL
+  shap_values <- as.data.frame(shap_values)
+  rownames(shap_values) <- NULL
+
   list(
     shap_values = shap_values,
     importance = shap_importance,
-    test_sample = test_sample
+    test_sample = test_sample_clean
   )
 }
 
@@ -246,8 +253,7 @@ plot_shap_summary <- function(interpret_result, top_n = 15) {
 
   # Usar shapviz para beeswarm plot
   if (requireNamespace("shapviz", quietly = TRUE)) {
-    predictors <- colnames(shap_values)
-    X_data <- as.data.frame(test_sample[, predictors, drop = FALSE])
+    X_data <- as.data.frame(test_sample)
     sv <- shapviz::shapviz(as.matrix(shap_values), X = X_data)
     p <- shapviz::sv_importance(sv, kind = "beeswarm", show_numbers = TRUE,
                                 max_display = top_n,
@@ -300,8 +306,7 @@ plot_shap_bar <- function(interpret_result, top_n = 15) {
 
   # Usar shapviz para bar plot
   if (requireNamespace("shapviz", quietly = TRUE)) {
-    predictors <- colnames(shap_values)
-    X_data <- as.data.frame(test_sample[, predictors, drop = FALSE])
+    X_data <- as.data.frame(test_sample)
     sv <- shapviz::shapviz(as.matrix(shap_values), X = X_data)
     p <- shapviz::sv_importance(sv, kind = "bar", max_display = top_n) +
       ggplot2::theme_bw() +
