@@ -897,7 +897,7 @@ plot_metrics_profile <- function(x, metrics = NULL, highlight = NULL,
     ggplot2::scale_color_manual(values = pal, name = "Modelo") +
     ggplot2::labs(
       title = "Perfil de Metricas de Rendimiento",
-      subtitle = if (!is.null(highlight)) paste("Mejor modelo:", .get_model_label(highlight)) else NULL,
+      subtitle = NULL,
       x = NULL,
       y = "Valor"
     ) +
