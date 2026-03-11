@@ -317,8 +317,9 @@ easy_ml <- function(data,
     }
   } else {
     valid_class_metrics <- c("roc_auc", "f_meas", "f2_meas", "accuracy", "sensitivity",
-                              "specificity", "bal_accuracy", "pr_auc", "mcc", "kap")
-    valid_reg_metrics <- c("rmse", "rsq", "mae")
+                              "specificity", "bal_accuracy", "pr_auc", "mcc", "kap",
+                              "rank_mean")
+    valid_reg_metrics <- c("rmse", "rsq", "mae", "rank_mean")
 
     if (task == "classification" && !select_metric %in% valid_class_metrics) {
       stop("Metrica no valida para clasificacion: ", select_metric,
