@@ -414,22 +414,39 @@ plot.easyml <- function(x, type = "panel", top_n = 15, ...) {
   preds <- x$predictions
 
   event_info <- .detect_event_level(preds[[target]])
-
-  roc_data <- yardstick::roc_curve(preds,
-                                   truth = !!rlang::sym(target),
-                                   !!rlang::sym(event_info$prob_col),
-                                   event_level = event_info$event_level)
-
   auc_val <- x$test_metrics$.estimate[x$test_metrics$.metric == "roc_auc"]
 
-  p <- suppressWarnings(
-    ggplot2::autoplot(roc_data) +
-      ggplot2::labs(
-        title = "Curva ROC",
-        subtitle = paste("AUC =", round(auc_val, 3), "| Clase positiva:", event_info$positive_class)
-      ) +
-      ggplot2::theme_minimal()
-  )
+  if (event_info$type == "binary") {
+    roc_data <- yardstick::roc_curve(preds,
+                                     truth = !!rlang::sym(target),
+                                     !!rlang::sym(event_info$prob_col),
+                                     event_level = event_info$event_level)
+
+    p <- suppressWarnings(
+      ggplot2::autoplot(roc_data) +
+        ggplot2::labs(
+          title = "Curva ROC",
+          subtitle = paste("AUC =", round(auc_val, 3), "| Clase positiva:", event_info$positive_class)
+        ) +
+        ggplot2::theme_minimal()
+    )
+  } else {
+    # Multiclass: pasar todas las columnas .pred_*
+    prob_cols_syms <- rlang::syms(event_info$prob_cols)
+
+    roc_data <- yardstick::roc_curve(preds,
+                                     truth = !!rlang::sym(target),
+                                     !!!prob_cols_syms)
+
+    p <- suppressWarnings(
+      ggplot2::autoplot(roc_data) +
+        ggplot2::labs(
+          title = "Curva ROC (Multiclase)",
+          subtitle = paste("AUC Hand-Till =", round(auc_val, 3))
+        ) +
+        ggplot2::theme_minimal()
+    )
+  }
 
   return(p)
 }

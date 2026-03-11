@@ -305,6 +305,8 @@ easy_ml <- function(data,
   }
 
  # Validar y establecer select_metric
+  n_levels_target <- length(levels(factor(data[[target]])))
+
   if (is.null(select_metric)) {
     select_metric <- if (task == "classification") "roc_auc" else "rmse"
   } else {
@@ -319,6 +321,11 @@ easy_ml <- function(data,
     if (task == "regression" && !select_metric %in% valid_reg_metrics) {
       stop("Metrica no valida para regresion: ", select_metric,
            "\nOpciones: ", paste(valid_reg_metrics, collapse = ", "))
+    }
+    # pr_auc no disponible en multiclass
+    if (task == "classification" && select_metric == "pr_auc" && n_levels_target >= 3) {
+      if (verbose) cat("    [!] pr_auc no disponible en multiclase. Usando roc_auc.\n")
+      select_metric <- "roc_auc"
     }
   }
 
@@ -456,8 +463,11 @@ easy_ml <- function(data,
     if (verbose) .print_reference("leakage")
   }
 
-  # 7.2 Optimizacion de Threshold (solo clasificacion)
-  if (task == "classification" && optimize_threshold) {
+  # Detectar numero de niveles del target
+  n_levels <- length(levels(factor(train_data[[target]])))
+
+  # 7.2 Optimizacion de Threshold (solo clasificacion binaria)
+  if (task == "classification" && optimize_threshold && n_levels == 2) {
     if (verbose) {
       .print_subsection(7, 2, "Optimizacion de Threshold")
       cat("    Por defecto, el modelo clasifica como positivo si la probabilidad\n")
@@ -473,6 +483,14 @@ easy_ml <- function(data,
     resultado$threshold_optimization <- threshold_result
     resultado$optimal_threshold <- threshold_result$optimal_threshold
     if (verbose) .print_reference("threshold")
+  }
+
+  if (task == "classification" && optimize_threshold && n_levels >= 3) {
+    if (verbose) {
+      .print_subsection(7, 2, "Optimizacion de Threshold")
+      cat("    Optimizacion de threshold disponible solo para clasificacion binaria.\n")
+      cat("    (", n_levels, " clases detectadas)\n\n", sep = "")
+    }
   }
 
   # 7.3 Analisis de Interacciones y Efectos No Lineales
@@ -505,8 +523,8 @@ easy_ml <- function(data,
     }
   }
 
-  # 7.4 Calibracion de Probabilidades (solo clasificacion)
-  if (task == "classification" && calibrate_probs) {
+  # 7.4 Calibracion de Probabilidades (solo clasificacion binaria)
+  if (task == "classification" && calibrate_probs && n_levels == 2) {
     if (verbose) .print_subsection(7, 4, "Calibracion de Probabilidades")
     calibration_result <- calibrate_probabilities(
       predictions = evaluation_result$predictions,
@@ -516,6 +534,14 @@ easy_ml <- function(data,
     )
     resultado$calibration <- calibration_result
     if (verbose) .print_reference("calibration")
+  }
+
+  if (task == "classification" && calibrate_probs && n_levels >= 3) {
+    if (verbose) {
+      .print_subsection(7, 4, "Calibracion de Probabilidades")
+      cat("    Calibracion de probabilidades disponible solo para clasificacion binaria.\n")
+      cat("    (", n_levels, " clases detectadas)\n\n", sep = "")
+    }
   }
 
   # 7.5 Analisis de Residuos Avanzado (solo regresion)

@@ -158,22 +158,42 @@ define_models <- function(models, task, verbose = TRUE) {
 #' @export
 fit_models_cv <- function(model_specs, recipe, cv_folds, task, verbose = TRUE) {
 
+  # Detectar numero de niveles del target
+  target_var <- recipe$var_info$variable[recipe$var_info$role == "outcome"]
+  train_data <- recipe$template
+  n_levels <- length(levels(factor(train_data[[target_var]])))
+
   # Definir metricas
   if (task == "classification") {
     # F2-Score: F-beta con beta=2 (prioriza recall sobre precision)
     f2_meas <- yardstick::metric_tweak("f2_meas", yardstick::f_meas, beta = 2)
 
-    metrics_set <- yardstick::metric_set(
-      yardstick::roc_auc,
-      yardstick::accuracy,
-      yardstick::sensitivity,
-      yardstick::specificity,
-      yardstick::f_meas,
-      yardstick::bal_accuracy,
-      yardstick::pr_auc,
-      yardstick::mcc,
-      f2_meas
-    )
+    if (n_levels == 2) {
+      # Binary: incluir pr_auc
+      metrics_set <- yardstick::metric_set(
+        yardstick::roc_auc,
+        yardstick::accuracy,
+        yardstick::sensitivity,
+        yardstick::specificity,
+        yardstick::f_meas,
+        yardstick::bal_accuracy,
+        yardstick::pr_auc,
+        yardstick::mcc,
+        f2_meas
+      )
+    } else {
+      # Multiclass: excluir pr_auc (no soporta multiclass)
+      metrics_set <- yardstick::metric_set(
+        yardstick::roc_auc,
+        yardstick::accuracy,
+        yardstick::sensitivity,
+        yardstick::specificity,
+        yardstick::f_meas,
+        yardstick::bal_accuracy,
+        yardstick::mcc,
+        f2_meas
+      )
+    }
   } else {
     metrics_set <- yardstick::metric_set(
       yardstick::rmse,
@@ -306,7 +326,9 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
       cat("      - f_meas:       F1-Score, balance entre precision y recall\n")
       cat("      - f2_meas:      F2-Score, como F1 pero prioriza recall\n")
       cat("      - mcc:          Matthews Correlation Coefficient (-1 a 1)\n")
-      cat("      - pr_auc:       Area bajo curva Precision-Recall\n")
+      if ("pr_auc" %in% names(summary_df)) {
+        cat("      - pr_auc:       Area bajo curva Precision-Recall\n")
+      }
       cat("      - roc_auc:      Area bajo curva ROC\n")
       cat("      - sensitivity:  Tasa de verdaderos positivos (recall)\n")
       cat("      - specificity:  Tasa de verdaderos negativos\n")

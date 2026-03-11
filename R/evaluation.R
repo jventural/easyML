@@ -7,11 +7,23 @@
 .detect_event_level <- function(target_vector) {
 
   levels_y <- levels(target_vector)
+  n_levels <- length(levels_y)
 
-  if (length(levels_y) != 2) {
-    stop("La variable objetivo debe tener exactamente 2 niveles para clasificacion binaria")
+  # --- Multiclass: 3+ niveles ---
+  if (n_levels >= 3) {
+    return(list(
+      type = "multiclass",
+      levels = levels_y,
+      n_classes = n_levels,
+      prob_cols = paste0(".pred_", levels_y)
+    ))
   }
 
+  if (n_levels < 2) {
+    stop("La variable objetivo debe tener al menos 2 niveles")
+  }
+
+  # --- Binary: exactamente 2 niveles ---
 
   # Funcion para normalizar texto: minusculas, sin tildes
 .normalize_text <- function(x) {
@@ -94,6 +106,7 @@
   }
 
   list(
+    type = "binary",
     levels = levels_y,
     positive_class = positive_class,
     negative_class = ifelse(positive_class == levels_y[1], levels_y[2], levels_y[1]),
@@ -196,10 +209,18 @@ evaluate_model <- function(tuning_result,
     results$confusion <- eval_confusion(predictions, target, verbose)
     if (verbose) .print_reference("confusion_matrix")
 
-    # 5.7 Calibracion
-    if (verbose) .print_subsection(5, 7, "Analisis de Calibracion")
-    results$calibration <- eval_calibration(predictions, target, verbose)
-    if (verbose) .print_reference("calibration")
+    # 5.7 Calibracion (solo binario)
+    n_levels_eval <- length(levels(predictions[[target]]))
+    if (n_levels_eval == 2) {
+      if (verbose) .print_subsection(5, 7, "Analisis de Calibracion")
+      results$calibration <- eval_calibration(predictions, target, verbose)
+      if (verbose) .print_reference("calibration")
+    } else {
+      if (verbose) {
+        .print_subsection(5, 7, "Analisis de Calibracion")
+        cat("    Analisis de calibracion disponible solo para clasificacion binaria.\n")
+      }
+    }
 
   } else {
     # 5.5 Predicciones vs Observaciones
@@ -252,39 +273,78 @@ eval_metrics <- function(predictions, target, task, verbose = TRUE) {
     # Detectar clase positiva y event_level
     event_info <- .detect_event_level(predictions[[target]])
 
-    if (verbose) {
-      cat("    Estas son las metricas calculadas en el conjunto de TEST.\n")
-      cat("    Representan el rendimiento real del modelo con datos nuevos.\n\n")
+    if (event_info$type == "binary") {
+      # --- BINARY ---
+      if (verbose) {
+        cat("    Estas son las metricas calculadas en el conjunto de TEST.\n")
+        cat("    Representan el rendimiento real del modelo con datos nuevos.\n\n")
 
-      cat("    Configuracion de clases:\n")
-      cat("      - Clase positiva (lo que queremos detectar):", event_info$positive_class, "\n")
-      cat("      - Clase negativa:", event_info$negative_class, "\n\n")
+        cat("    Configuracion de clases:\n")
+        cat("      - Clase positiva (lo que queremos detectar):", event_info$positive_class, "\n")
+        cat("      - Clase negativa:", event_info$negative_class, "\n\n")
+      }
+
+      # F2-Score: F-beta con beta=2 (prioriza recall sobre precision)
+      f2_meas <- yardstick::metric_tweak("f2_meas", yardstick::f_meas, beta = 2)
+
+      metrics <- dplyr::bind_rows(
+        yardstick::roc_auc(predictions, truth = !!rlang::sym(target),
+                           !!rlang::sym(event_info$prob_col),
+                           event_level = event_info$event_level),
+        yardstick::accuracy(predictions, truth = !!rlang::sym(target),
+                            estimate = .pred_class),
+        yardstick::sensitivity(predictions, truth = !!rlang::sym(target),
+                               estimate = .pred_class,
+                               event_level = event_info$event_level),
+        yardstick::specificity(predictions, truth = !!rlang::sym(target),
+                               estimate = .pred_class,
+                               event_level = event_info$event_level),
+        yardstick::f_meas(predictions, truth = !!rlang::sym(target),
+                          estimate = .pred_class,
+                          event_level = event_info$event_level),
+        yardstick::mcc(predictions, truth = !!rlang::sym(target),
+                       estimate = .pred_class),
+        f2_meas(predictions, truth = !!rlang::sym(target),
+                estimate = .pred_class,
+                event_level = event_info$event_level)
+      )
+    } else {
+      # --- MULTICLASS ---
+      if (verbose) {
+        cat("    Estas son las metricas calculadas en el conjunto de TEST.\n")
+        cat("    Representan el rendimiento real del modelo con datos nuevos.\n\n")
+
+        cat("    Clasificacion multiclase (", event_info$n_classes, " clases):\n", sep = "")
+        cat("      - Clases:", paste(event_info$levels, collapse = ", "), "\n\n")
+      }
+
+      # F2-Score multiclass
+      f2_meas <- yardstick::metric_tweak("f2_meas", yardstick::f_meas, beta = 2)
+
+      # roc_auc multiclass: pasar todas las columnas .pred_*
+      prob_cols_syms <- rlang::syms(event_info$prob_cols)
+
+      metrics <- dplyr::bind_rows(
+        yardstick::roc_auc(predictions, truth = !!rlang::sym(target),
+                           !!!prob_cols_syms),
+        yardstick::accuracy(predictions, truth = !!rlang::sym(target),
+                            estimate = .pred_class),
+        yardstick::sensitivity(predictions, truth = !!rlang::sym(target),
+                               estimate = .pred_class,
+                               estimator = "macro"),
+        yardstick::specificity(predictions, truth = !!rlang::sym(target),
+                               estimate = .pred_class,
+                               estimator = "macro"),
+        yardstick::f_meas(predictions, truth = !!rlang::sym(target),
+                          estimate = .pred_class,
+                          estimator = "macro"),
+        yardstick::mcc(predictions, truth = !!rlang::sym(target),
+                       estimate = .pred_class),
+        f2_meas(predictions, truth = !!rlang::sym(target),
+                estimate = .pred_class,
+                estimator = "macro")
+      )
     }
-
-    # F2-Score: F-beta con beta=2 (prioriza recall sobre precision)
-    f2_meas <- yardstick::metric_tweak("f2_meas", yardstick::f_meas, beta = 2)
-
-    metrics <- dplyr::bind_rows(
-      yardstick::roc_auc(predictions, truth = !!rlang::sym(target),
-                         !!rlang::sym(event_info$prob_col),
-                         event_level = event_info$event_level),
-      yardstick::accuracy(predictions, truth = !!rlang::sym(target),
-                          estimate = .pred_class),
-      yardstick::sensitivity(predictions, truth = !!rlang::sym(target),
-                             estimate = .pred_class,
-                             event_level = event_info$event_level),
-      yardstick::specificity(predictions, truth = !!rlang::sym(target),
-                             estimate = .pred_class,
-                             event_level = event_info$event_level),
-      yardstick::f_meas(predictions, truth = !!rlang::sym(target),
-                        estimate = .pred_class,
-                        event_level = event_info$event_level),
-      yardstick::mcc(predictions, truth = !!rlang::sym(target),
-                     estimate = .pred_class),
-      f2_meas(predictions, truth = !!rlang::sym(target),
-              estimate = .pred_class,
-              event_level = event_info$event_level)
-    )
   } else {
     metrics <- dplyr::bind_rows(
       yardstick::rmse(predictions, truth = !!rlang::sym(target),
@@ -309,14 +369,25 @@ eval_metrics <- function(predictions, target, task, verbose = TRUE) {
     }
 
     if (task == "classification") {
+      is_multi <- event_info$type == "multiclass"
       cat("\n    Leyenda rapida:\n")
-      cat("      - roc_auc: Capacidad de distinguir entre clases (0.5=azar, 1=perfecto)\n")
+      cat("      - roc_auc: Capacidad de distinguir entre clases (0.5=azar, 1=perfecto)",
+          if (is_multi) " [Hand-Till]" else "", "\n", sep = "")
       cat("      - accuracy: Porcentaje de predicciones correctas\n")
-      cat("      - sensitivity: Porcentaje de positivos detectados correctamente\n")
-      cat("      - specificity: Porcentaje de negativos detectados correctamente\n")
-      cat("      - f_meas: Balance entre precision y sensibilidad (F1)\n")
+      cat("      - sensitivity: Porcentaje de positivos detectados correctamente",
+          if (is_multi) " [promedio macro]" else "", "\n", sep = "")
+      cat("      - specificity: Porcentaje de negativos detectados correctamente",
+          if (is_multi) " [promedio macro]" else "", "\n", sep = "")
+      cat("      - f_meas: Balance entre precision y sensibilidad (F1)",
+          if (is_multi) " [promedio macro]" else "", "\n", sep = "")
       cat("      - mcc: Correlacion prediccion-realidad, robusto a desbalance (-1 a 1)\n")
-      cat("      - f2_meas: Como F1 pero prioriza detectar positivos (F2)\n")
+      cat("      - f2_meas: Como F1 pero prioriza detectar positivos (F2)",
+          if (is_multi) " [promedio macro]" else "", "\n", sep = "")
+      if (is_multi) {
+        cat("\n    Nota: Las metricas usan promedio macro (promedio entre clases,\n")
+        cat("    sin ponderar por frecuencia). ROC-AUC usa el metodo Hand-Till\n")
+        cat("    para extension multiclase.\n")
+      }
     } else {
       cat("\n    Leyenda rapida:\n")
       cat("      - rmse: Error promedio (penaliza errores grandes)\n")
@@ -336,19 +407,37 @@ eval_roc <- function(predictions, target, verbose = TRUE) {
   # Detectar clase positiva y event_level
   event_info <- .detect_event_level(predictions[[target]])
 
-  roc_data <- yardstick::roc_curve(
-    predictions,
-    truth = !!rlang::sym(target),
-    !!rlang::sym(event_info$prob_col),
-    event_level = event_info$event_level
-  )
+  if (event_info$type == "binary") {
+    # --- BINARY ---
+    roc_data <- yardstick::roc_curve(
+      predictions,
+      truth = !!rlang::sym(target),
+      !!rlang::sym(event_info$prob_col),
+      event_level = event_info$event_level
+    )
 
-  auc <- yardstick::roc_auc(
-    predictions,
-    truth = !!rlang::sym(target),
-    !!rlang::sym(event_info$prob_col),
-    event_level = event_info$event_level
-  )$.estimate
+    auc <- yardstick::roc_auc(
+      predictions,
+      truth = !!rlang::sym(target),
+      !!rlang::sym(event_info$prob_col),
+      event_level = event_info$event_level
+    )$.estimate
+  } else {
+    # --- MULTICLASS ---
+    prob_cols_syms <- rlang::syms(event_info$prob_cols)
+
+    roc_data <- yardstick::roc_curve(
+      predictions,
+      truth = !!rlang::sym(target),
+      !!!prob_cols_syms
+    )
+
+    auc <- yardstick::roc_auc(
+      predictions,
+      truth = !!rlang::sym(target),
+      !!!prob_cols_syms
+    )$.estimate
+  }
 
   if (verbose) {
     cat("    La curva ROC muestra el balance entre detectar positivos correctamente\n")
@@ -360,10 +449,15 @@ eval_roc <- function(predictions, target, verbose = TRUE) {
     interpretation <- .interpret_metric_value("roc_auc", auc)
     cat("    Interpretacion:", interpretation, "\n\n")
 
-    cat("    Nota: La curva ROC se incluye siempre como herramienta de diagnostico\n")
-    cat("    porque permite visualizar el rendimiento del modelo en todos los\n")
-    cat("    umbrales de decision posibles, no solo en el umbral por defecto (0.5).\n")
-    cat("    Esto es util si necesitas ajustar el punto de corte segun tu caso de uso.\n")
+    if (event_info$type == "multiclass") {
+      cat("    Nota: En clasificacion multiclase, el AUC se calcula usando el\n")
+      cat("    metodo Hand-Till, y se genera una curva ROC por clase (one-vs-all).\n")
+    } else {
+      cat("    Nota: La curva ROC se incluye siempre como herramienta de diagnostico\n")
+      cat("    porque permite visualizar el rendimiento del modelo en todos los\n")
+      cat("    umbrales de decision posibles, no solo en el umbral por defecto (0.5).\n")
+      cat("    Esto es util si necesitas ajustar el punto de corte segun tu caso de uso.\n")
+    }
   }
 
   list(curve = roc_data, auc = auc, event_info = event_info)
@@ -387,27 +481,51 @@ eval_confusion <- function(predictions, target, verbose = TRUE) {
     cat("    La matriz de confusion muestra como se distribuyen las predicciones\n")
     cat("    del modelo comparadas con los valores reales (Truth).\n\n")
 
-    cat("    Clase positiva:", event_info$positive_class, "\n")
-    cat("    Clase negativa:", event_info$negative_class, "\n\n")
+    if (event_info$type == "binary") {
+      cat("    Clase positiva:", event_info$positive_class, "\n")
+      cat("    Clase negativa:", event_info$negative_class, "\n\n")
 
-    print(conf_mat)
+      print(conf_mat)
 
-    # Extraer valores de la matriz
-    mat <- conf_mat$table
-    tn <- mat[1, 1]  # Verdaderos negativos
-    fp <- mat[2, 1]  # Falsos positivos
-    fn <- mat[1, 2]  # Falsos negativos
-    tp <- mat[2, 2]  # Verdaderos positivos
+      # Extraer valores de la matriz
+      mat <- conf_mat$table
+      tn <- mat[1, 1]  # Verdaderos negativos
+      fp <- mat[2, 1]  # Falsos positivos
+      fn <- mat[1, 2]  # Falsos negativos
+      tp <- mat[2, 2]  # Verdaderos positivos
 
-    cat("\n    Como leer la matriz:\n")
-    cat("      - Verdaderos Negativos (", tn, "): Predijo '", event_info$negative_class,
-        "' y era '", event_info$negative_class, "' (acierto)\n", sep = "")
-    cat("      - Verdaderos Positivos (", tp, "): Predijo '", event_info$positive_class,
-        "' y era '", event_info$positive_class, "' (acierto)\n", sep = "")
-    cat("      - Falsos Positivos (", fp, "): Predijo '", event_info$positive_class,
-        "' pero era '", event_info$negative_class, "' (error)\n", sep = "")
-    cat("      - Falsos Negativos (", fn, "): Predijo '", event_info$negative_class,
-        "' pero era '", event_info$positive_class, "' (error)\n", sep = "")
+      cat("\n    Como leer la matriz:\n")
+      cat("      - Verdaderos Negativos (", tn, "): Predijo '", event_info$negative_class,
+          "' y era '", event_info$negative_class, "' (acierto)\n", sep = "")
+      cat("      - Verdaderos Positivos (", tp, "): Predijo '", event_info$positive_class,
+          "' y era '", event_info$positive_class, "' (acierto)\n", sep = "")
+      cat("      - Falsos Positivos (", fp, "): Predijo '", event_info$positive_class,
+          "' pero era '", event_info$negative_class, "' (error)\n", sep = "")
+      cat("      - Falsos Negativos (", fn, "): Predijo '", event_info$negative_class,
+          "' pero era '", event_info$positive_class, "' (error)\n", sep = "")
+    } else {
+      # --- MULTICLASS ---
+      cat("    Clases:", paste(event_info$levels, collapse = ", "), "\n\n")
+
+      print(conf_mat)
+
+      mat <- conf_mat$table
+      total <- sum(mat)
+      correct <- sum(diag(mat))
+      cat("\n    Como leer la matriz:\n")
+      cat("      - La diagonal muestra los aciertos por clase\n")
+      cat("      - Total aciertos:", correct, "de", total,
+          "(", round(correct / total * 100, 1), "%)\n")
+      for (k in seq_along(event_info$levels)) {
+        cls <- event_info$levels[k]
+        cls_correct <- mat[k, k]
+        cls_total <- sum(mat[, k])
+        if (cls_total > 0) {
+          cat("      -", cls, ":", cls_correct, "/", cls_total,
+              "(", round(cls_correct / cls_total * 100, 1), "% detectados)\n")
+        }
+      }
+    }
   }
 
   conf_mat
@@ -420,6 +538,15 @@ eval_calibration <- function(predictions, target, verbose = TRUE) {
 
   # Detectar clase positiva
   event_info <- .detect_event_level(predictions[[target]])
+
+  # Guard: calibracion solo para clasificacion binaria
+  if (event_info$type == "multiclass") {
+    if (verbose) {
+      cat("    Analisis de calibracion disponible solo para clasificacion binaria.\n")
+      cat("    (", event_info$n_classes, " clases detectadas)\n", sep = "")
+    }
+    return(NULL)
+  }
 
   # Crear bins de probabilidad
   predictions$prob_bin <- cut(

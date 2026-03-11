@@ -529,10 +529,17 @@ run_nested_cv <- function(data,
       event_info <- .detect_event_level(test_outer[[target]])
 
       # Calcular métricas con event_level correcto
-      auc <- yardstick::roc_auc(test_preds,
-                                 truth = !!rlang::sym(target),
-                                 !!rlang::sym(event_info$prob_col),
-                                 event_level = event_info$event_level)$.estimate
+      if (event_info$type == "binary") {
+        auc <- yardstick::roc_auc(test_preds,
+                                   truth = !!rlang::sym(target),
+                                   !!rlang::sym(event_info$prob_col),
+                                   event_level = event_info$event_level)$.estimate
+      } else {
+        prob_cols_syms <- rlang::syms(event_info$prob_cols)
+        auc <- yardstick::roc_auc(test_preds,
+                                   truth = !!rlang::sym(target),
+                                   !!!prob_cols_syms)$.estimate
+      }
       acc <- yardstick::accuracy(test_preds,
                                   truth = !!rlang::sym(target),
                                   estimate = .pred_class)$.estimate
