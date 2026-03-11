@@ -470,6 +470,10 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
 #' @noRd
 .interpret_metric_value <- function(metric, value) {
 
+  if (is.null(value) || length(value) == 0 || is.na(value)) {
+    return("No disponible (NA)")
+  }
+
   # ROC-AUC y PR-AUC: miden que tan bien el modelo distingue entre clases
   if (metric %in% c("roc_auc", "pr_auc")) {
     if (value >= 0.99) return("[!] ADVERTENCIA: Valor sospechosamente alto (posible overfitting o data leakage). Revise los datos.")
