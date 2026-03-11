@@ -464,7 +464,7 @@ easy_ml <- function(data,
   }
 
   # Detectar numero de niveles del target
-  n_levels <- length(levels(factor(train_data[[target]])))
+  n_levels <- length(levels(factor(preprocess_result$train_data[[target]])))
 
   # 7.2 Optimizacion de Threshold (solo clasificacion binaria)
   if (task == "classification" && optimize_threshold && n_levels == 2) {

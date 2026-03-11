@@ -124,6 +124,12 @@ calculate_shap <- function(final_fit,
   # Usar el workflow completo (no el modelo extraido) para que la receta
   # se aplique automaticamente. Asi fastshap puede permutar los datos
   # crudos (con factores) y el workflow los transforma internamente.
+
+  # Detectar si es multiclass
+  target_vec <- train_data[[target]]
+  n_classes <- length(levels(factor(target_vec)))
+  is_multiclass <- n_classes >= 3
+
   # Funcion de prediccion para el workflow
   predict_fn <- function(workflow, newdata) {
     newdata <- as.data.frame(newdata)
@@ -131,7 +137,11 @@ calculate_shap <- function(final_fit,
     if (".pred_class" %in% names(preds)) {
       # Clasificacion - usar probabilidades
       probs <- stats::predict(workflow, new_data = newdata, type = "prob")
-      return(probs[[2]])  # Probabilidad de clase positiva
+      if (ncol(probs) == 2) {
+        return(probs[[2]])  # Binary: probabilidad de clase positiva
+      } else {
+        return(as.matrix(probs))  # Multiclass: matrix de probabilidades
+      }
     } else {
       return(preds$.pred)
     }
@@ -154,6 +164,18 @@ calculate_shap <- function(final_fit,
 
   if (is.null(shap_values)) {
     return(NULL)
+  }
+
+  # Multiclass: fastshap retorna una lista de data.frames (uno por clase).
+  # Agregar promediando |SHAP| entre clases para importancia global.
+  if (is.list(shap_values) && !is.data.frame(shap_values)) {
+    shap_matrices <- lapply(shap_values, function(sv) as.matrix(as.data.frame(sv)))
+    # Promedio de |SHAP| entre clases → importancia global por variable
+    shap_values <- Reduce("+", lapply(shap_matrices, abs)) / length(shap_matrices)
+    shap_values <- as.data.frame(shap_values)
+    if (verbose) {
+      cat("    SHAP multiclase: importancia promediada entre", length(shap_matrices), "clases\n")
+    }
   }
 
   # Calcular importancia media por variable
