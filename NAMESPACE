@@ -100,6 +100,7 @@ export(generate_all_plots)
 export(save_all_plots)
 export(get_figures_catalog)
 export(print_figures_catalog)
+export(plot_metrics_profile)
 
 # FUNCIONES FEATURE ENGINEERING
 export(auto_feature_engineering)

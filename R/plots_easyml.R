@@ -764,3 +764,160 @@ print_figures_catalog <- function(x) {
   invisible(NULL)
 }
 
+
+#' @title Perfil de Metricas de Rendimiento
+#'
+#' @description
+#' Genera un grafico de puntos y lineas que muestra el perfil de todas las
+#' metricas de rendimiento para cada modelo evaluado en validacion cruzada.
+#' Cada modelo se representa como una linea conectando sus valores en cada
+#' metrica, facilitando la comparacion visual de fortalezas y debilidades.
+#'
+#' @param x Objeto easyml o data.frame. Si es un objeto easyml, se extrae
+#'   \code{cv_summary} automaticamente. Si es un data.frame, debe tener una
+#'   columna \code{model} y columnas numericas con las metricas.
+#' @param metrics Character vector con nombres de metricas a incluir. Si es
+#'   \code{NULL} (por defecto), se incluyen todas las metricas numericas
+#'   disponibles.
+#' @param highlight Character. Nombre del modelo a resaltar. Si es \code{NULL},
+#'   se resalta el mejor modelo (si \code{x} es un objeto easyml).
+#' @param size_point Numeric. Tamano de los puntos (default 3.5).
+#' @param size_line Numeric. Grosor de las lineas (default 0.9).
+#' @param show_values Logical. Mostrar valores numericos sobre los puntos
+#'   (default TRUE).
+#'
+#' @return Un objeto ggplot
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' resultado <- easy_ml(data, target = "clase")
+#' plot_metrics_profile(resultado)
+#' plot_metrics_profile(resultado, metrics = c("roc_auc", "mcc", "f_meas", "kap"))
+#' }
+plot_metrics_profile <- function(x, metrics = NULL, highlight = NULL,
+                                 size_point = 3.5, size_line = 0.9,
+                                 show_values = TRUE) {
+
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Instalar paquete ggplot2: install.packages('ggplot2')")
+  }
+
+  # Extraer datos
+  if (inherits(x, "easyml")) {
+    cv_data <- x$cv_summary
+    if (is.null(highlight)) highlight <- x$best_model
+  } else if (is.data.frame(x)) {
+    cv_data <- x
+  } else {
+    stop("x debe ser un objeto easyml o un data.frame con columna 'model'")
+  }
+
+  if (is.null(cv_data) || !"model" %in% names(cv_data)) {
+    stop("No se encontro cv_summary con columna 'model'")
+  }
+
+  # Etiquetas legibles
+  metric_labels <- c(
+    roc_auc = "ROC-AUC", f_meas = "F1-Score", f2_meas = "F2-Score",
+    accuracy = "Accuracy", sensitivity = "Sensitivity",
+    specificity = "Specificity", bal_accuracy = "Bal. Accuracy",
+    pr_auc = "PR-AUC", mcc = "MCC", kap = "Kappa",
+    rmse = "RMSE", rsq = "R\u00b2", mae = "MAE", mape = "MAPE"
+  )
+
+  # Seleccionar metricas
+  num_cols <- setdiff(names(cv_data)[vapply(cv_data, is.numeric, logical(1))], "model")
+  if (!is.null(metrics)) {
+    num_cols <- intersect(num_cols, metrics)
+  }
+
+  if (length(num_cols) == 0) {
+    stop("No se encontraron metricas numericas en los datos")
+  }
+
+  # Pivotear a formato largo
+  plot_df <- cv_data[, c("model", num_cols), drop = FALSE]
+  plot_long <- stats::reshape(
+    plot_df,
+    direction = "long",
+    varying = num_cols,
+    v.names = "value",
+    timevar = "metric",
+    times = num_cols,
+    idvar = "model"
+  )
+  rownames(plot_long) <- NULL
+
+  # Aplicar etiquetas legibles
+  plot_long$metric_label <- ifelse(
+    plot_long$metric %in% names(metric_labels),
+    metric_labels[plot_long$metric],
+    plot_long$metric
+  )
+  # Ordenar metricas por valor medio descendente
+  metric_order <- stats::aggregate(value ~ metric_label, data = plot_long, FUN = mean)
+  metric_order <- metric_order$metric_label[order(metric_order$value, decreasing = TRUE)]
+  plot_long$metric_label <- factor(plot_long$metric_label, levels = metric_order)
+
+  # Etiquetas de modelo legibles
+  plot_long$model_label <- vapply(plot_long$model, function(m) {
+    lbl <- .get_model_label(m)
+    if (is.null(lbl) || is.na(lbl)) m else lbl
+  }, character(1))
+
+  # Determinar resaltado
+  plot_long$highlighted <- plot_long$model == highlight
+
+  # Paleta de colores
+  models <- unique(plot_long$model_label)
+  n_models <- length(models)
+  if (n_models <= 8) {
+    pal <- c("#3498db", "#e74c3c", "#2ecc71", "#9b59b6",
+             "#e67e22", "#1abc9c", "#f39c12", "#34495e")[seq_len(n_models)]
+  } else {
+    pal <- grDevices::colorRampPalette(
+      c("#3498db", "#e74c3c", "#2ecc71", "#9b59b6")
+    )(n_models)
+  }
+  names(pal) <- models
+
+  # Grafico
+  p <- ggplot2::ggplot(plot_long,
+                       ggplot2::aes(x = metric_label, y = value,
+                                    color = model_label, group = model_label)) +
+    ggplot2::geom_line(ggplot2::aes(linewidth = highlighted), alpha = 0.8) +
+    ggplot2::geom_point(ggplot2::aes(size = highlighted), alpha = 0.9) +
+    ggplot2::scale_linewidth_manual(values = c("FALSE" = size_line * 0.7,
+                                               "TRUE" = size_line * 1.4),
+                                    guide = "none") +
+    ggplot2::scale_size_manual(values = c("FALSE" = size_point * 0.8,
+                                          "TRUE" = size_point * 1.3),
+                               guide = "none") +
+    ggplot2::scale_color_manual(values = pal, name = "Modelo") +
+    ggplot2::labs(
+      title = "Perfil de Metricas de Rendimiento",
+      subtitle = if (!is.null(highlight)) paste("Mejor modelo:", .get_model_label(highlight)) else NULL,
+      x = NULL,
+      y = "Valor"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "bold", size = 14),
+      plot.subtitle = ggplot2::element_text(size = 11, color = "gray40"),
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = 10),
+      legend.position = "bottom",
+      panel.grid.major.x = ggplot2::element_line(color = "gray90"),
+      panel.grid.minor = ggplot2::element_blank()
+    )
+
+  if (show_values) {
+    p <- p + ggplot2::geom_text(
+      ggplot2::aes(label = sprintf("%.3f", value)),
+      vjust = -1.2, size = 2.8, show.legend = FALSE
+    )
+  }
+
+  return(p)
+}
+
