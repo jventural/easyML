@@ -130,33 +130,42 @@ calculate_shap <- function(final_fit,
   n_classes <- length(levels(factor(target_vec)))
   is_multiclass <- n_classes >= 3
 
-  # Funcion de prediccion para el workflow
-  predict_fn <- function(workflow, newdata) {
-    newdata <- as.data.frame(newdata)
-    preds <- stats::predict(workflow, new_data = newdata)
-    if (".pred_class" %in% names(preds)) {
-      # Clasificacion - usar probabilidades
-      probs <- stats::predict(workflow, new_data = newdata, type = "prob")
-      if (ncol(probs) == 2) {
-        return(probs[[2]])  # Binary: probabilidad de clase positiva
-      } else {
-        return(as.matrix(probs))  # Multiclass: matrix de probabilidades
-      }
-    } else {
-      return(preds$.pred)
-    }
-  }
+  X_shap <- as.data.frame(test_sample[, predictors])
 
   # Calcular SHAP
   shap_values <- tryCatch({
-    fastshap::explain(
-      object = final_fit,
-      X = as.data.frame(test_sample[, predictors]),
-      pred_wrapper = function(model, newdata) {
-        predict_fn(model, newdata)
-      },
-      nsim = 50
-    )
+    if (is_multiclass) {
+      # Multiclass: calcular SHAP por clase y promediar |SHAP|
+      if (verbose) cat("    Calculando SHAP por clase (", n_classes, " clases)...\n", sep = "")
+      all_shap <- lapply(seq_len(n_classes), function(k) {
+        shap_k <- fastshap::explain(
+          object = final_fit,
+          X = X_shap,
+          pred_wrapper = function(model, newdata) {
+            newdata <- as.data.frame(newdata)
+            probs <- stats::predict(model, new_data = newdata, type = "prob")
+            probs[[k]]
+          },
+          nsim = 50
+        )
+        as.matrix(as.data.frame(shap_k))
+      })
+      # Promedio de |SHAP| entre clases → importancia global
+      shap_agg <- Reduce("+", lapply(all_shap, abs)) / length(all_shap)
+      as.data.frame(shap_agg)
+    } else {
+      # Binary: probabilidad de clase positiva
+      fastshap::explain(
+        object = final_fit,
+        X = X_shap,
+        pred_wrapper = function(model, newdata) {
+          newdata <- as.data.frame(newdata)
+          probs <- stats::predict(model, new_data = newdata, type = "prob")
+          probs[[2]]
+        },
+        nsim = 50
+      )
+    }
   }, error = function(e) {
     if (verbose) cat("    Error en fastshap:", conditionMessage(e), "\n")
     NULL
@@ -164,18 +173,6 @@ calculate_shap <- function(final_fit,
 
   if (is.null(shap_values)) {
     return(NULL)
-  }
-
-  # Multiclass: fastshap retorna una lista de data.frames (uno por clase).
-  # Agregar promediando |SHAP| entre clases para importancia global.
-  if (is.list(shap_values) && !is.data.frame(shap_values)) {
-    shap_matrices <- lapply(shap_values, function(sv) as.matrix(as.data.frame(sv)))
-    # Promedio de |SHAP| entre clases → importancia global por variable
-    shap_values <- Reduce("+", lapply(shap_matrices, abs)) / length(shap_matrices)
-    shap_values <- as.data.frame(shap_values)
-    if (verbose) {
-      cat("    SHAP multiclase: importancia promediada entre", length(shap_matrices), "clases\n")
-    }
   }
 
   # Calcular importancia media por variable
