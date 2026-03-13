@@ -17,9 +17,8 @@
 #' @param test_split Proporcion de datos para test (default: 0.20).
 #' @param cv_folds Numero de folds para validacion cruzada (default: 10).
 #' @param select_metric Metrica para seleccionar el mejor modelo. Si es NULL (default),
-#'   se auto-selecciona segun literatura: MCC para clasificacion (Chicco & Jurman, 2023),
-#'   R-squared para regresion (Chicco et al., 2021).
-#'   Para clasificacion: "mcc" (default), "roc_auc", "f_meas" (F1), "f2_meas" (F2),
+#'   se auto-selecciona: ROC-AUC para clasificacion, R-squared para regresion.
+#'   Para clasificacion: "roc_auc" (default), "mcc", "f_meas" (F1), "f2_meas" (F2),
 #'   "accuracy", "sensitivity", "specificity", "bal_accuracy", "pr_auc", "kap".
 #'   Para regresion: "rsq" (default), "rmse", "mae".
 #' @param tune_best Realizar tuning del mejor modelo (default: TRUE).
@@ -311,7 +310,7 @@ easy_ml <- function(data,
 
   if (is.null(select_metric)) {
     if (task == "classification") {
-      select_metric <- "mcc"  # Chicco & Jurman (2023)
+      select_metric <- "roc_auc"
     } else {
       select_metric <- "rsq"  # Chicco et al. (2021)
     }

@@ -32,7 +32,7 @@ train_models <- function(preprocess_result,
 
   # Establecer metrica por defecto si no se especifica
   if (is.null(select_metric)) {
-    select_metric <- if (task == "classification") "mcc" else "rsq"
+    select_metric <- if (task == "classification") "roc_auc" else "rsq"
   }
 
   if (verbose) {
@@ -263,7 +263,7 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
 
   # Establecer metrica por defecto
   if (is.null(select_metric)) {
-    select_metric <- if (task == "classification") "mcc" else "rsq"
+    select_metric <- if (task == "classification") "roc_auc" else "rsq"
   }
 
   # Etiquetas legibles para las metricas

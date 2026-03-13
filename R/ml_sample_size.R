@@ -9,10 +9,11 @@
 #' @param task Task type: "classification" or "regression".
 #' @param model Model to use: "rf" (Random Forest), "xgboost", "svm", "glm".
 #'   Can be a vector to compare multiple models.
-#' @param metric Evaluation metric (uses yardstick naming convention).
-#'   For classification: "roc_auc", "accuracy", "f_meas", "kap" (Cohen's Kappa),
-#'   "mcc" (Matthews Correlation Coefficient), "bal_accuracy" (mean per-class recall).
-#'   For regression: "rmse", "mae", "rsq".
+#' @param metric Evaluation metric (uses yardstick naming convention). Default: "roc_auc"
+#'   for classification, "rsq" for regression.
+#'   For classification: "roc_auc" (default), "accuracy", "f_meas", "mcc", "kap",
+#'   "bal_accuracy".
+#'   For regression: "rsq" (default), "rmse", "mae".
 #'   Aliases accepted: auc, f1, kappa, balanced_accuracy, r2.
 #' @param n_grid Vector with sample sizes to test.
 #' @param reps Number of Monte Carlo repetitions per sample size. Recommendations:
@@ -160,9 +161,9 @@ ml_sample_size <- function(data = NULL,
     .check_dependencies(m)
   }
 
-  # Default metric (MCC para clasificacion, R2 para regresion)
+  # Default metric (ROC-AUC para clasificacion, R2 para regresion)
   if (is.null(metric)) {
-    metric <- if (task == "classification") "mcc" else "rsq"
+    metric <- if (task == "classification") "roc_auc" else "rsq"
   }
 
   # Normalize metric name (accept aliases: auc, f1, kappa, balanced_accuracy, r2)

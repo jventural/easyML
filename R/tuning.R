@@ -282,11 +282,11 @@ tune_best_model <- function(modeling_result,
 
   # Establecer metrica de seleccion
   if (is.null(select_metric)) {
-    select_metric <- if (task == "classification") "mcc" else "rsq"
+    select_metric <- if (task == "classification") "roc_auc" else "rsq"
   }
-  # rank_mean no es una metrica de yardstick; usar mcc/rsq para tuning
+  # rank_mean no es una metrica de yardstick; usar roc_auc/rsq para tuning
   if (select_metric == "rank_mean") {
-    select_metric <- if (task == "classification") "mcc" else "rsq"
+    select_metric <- if (task == "classification") "roc_auc" else "rsq"
   }
 
   # Definir metricas
