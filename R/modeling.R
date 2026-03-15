@@ -234,7 +234,7 @@ fit_models_cv <- function(model_specs, recipe, cv_folds, task, select_metric = N
       # Mostrar la metrica seleccionada por el usuario
       show_metric <- select_metric
       if (is.null(show_metric)) {
-        show_metric <- if (task == "classification") "mcc" else "rsq"
+        show_metric <- if (task == "classification") "roc_auc" else "rsq"
       }
       metric_labels_cv <- c(
         roc_auc = "AUC", mcc = "MCC", f_meas = "F1", f2_meas = "F2",
