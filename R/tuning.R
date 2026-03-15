@@ -42,10 +42,10 @@ tune_best_model <- function(modeling_result,
   # 4.1 Identificar Mejor Modelo
   if (verbose) .print_subsection(4, 1, "Identificar Mejor Modelo")
 
-  if (!best_model %in% c("rf", "xgboost")) {
+  if (!best_model %in% c("rf", "xgboost", "svm", "nnet", "tree")) {
     if (verbose) {
       cat("    Mejor modelo:", .get_model_label(best_model), "\n")
-      cat("    [!] Tuning solo disponible para RF y XGBoost\n")
+      cat("    [!] Este modelo no tiene hiperparametros tuneables\n")
       cat("    Omitiendo tuning...\n")
     }
 
@@ -188,6 +188,12 @@ tune_best_model <- function(modeling_result,
     return(c("mtry", "min_n"))
   } else if (model_name == "xgboost") {
     return(c("mtry", "min_n", "tree_depth", "learn_rate"))
+  } else if (model_name == "svm") {
+    return(c("cost", "rbf_sigma"))
+  } else if (model_name == "nnet") {
+    return(c("hidden_units", "penalty"))
+  } else if (model_name == "tree") {
+    return(c("cost_complexity", "tree_depth", "min_n"))
   }
   return(character())
 }
@@ -212,6 +218,29 @@ tune_best_model <- function(modeling_result,
         "Niveles maximos de cada arbol. Mas profundo = captura patrones complejos pero puede sobreajustar.",
       "learn_rate (tasa de aprendizaje)" =
         "Velocidad de aprendizaje. Valores pequenos = aprendizaje lento pero estable, valores grandes = rapido pero inestable."
+    ))
+  } else if (model_name == "svm") {
+    return(list(
+      "cost (costo de penalizacion)" =
+        "Controla cuanto penaliza las clasificaciones incorrectas. Valores altos = menos errores en train pero riesgo de sobreajuste.",
+      "rbf_sigma (ancho del kernel RBF)" =
+        "Controla la influencia de cada observacion. Valores bajos = decision suave, valores altos = decision mas compleja."
+    ))
+  } else if (model_name == "nnet") {
+    return(list(
+      "hidden_units (neuronas ocultas)" =
+        "Numero de neuronas en la capa oculta. Mas neuronas = mayor capacidad de capturar patrones complejos.",
+      "penalty (regularizacion / weight decay)" =
+        "Penalizacion sobre los pesos de la red. Valores altos = modelo mas simple, reduce sobreajuste."
+    ))
+  } else if (model_name == "tree") {
+    return(list(
+      "cost_complexity (parametro de poda)" =
+        "Controla cuanto se poda el arbol. Valores altos = arbol mas simple, valores bajos = arbol mas complejo.",
+      "tree_depth (profundidad maxima)" =
+        "Niveles maximos del arbol. Mas profundo = captura interacciones complejas pero puede sobreajustar.",
+      "min_n (observaciones minimas)" =
+        "Minimo de casos requeridos para dividir un nodo. Valores altos = arbol mas simple."
     ))
   }
   return(list())
@@ -272,6 +301,66 @@ tune_best_model <- function(modeling_result,
     }
   }
 
+  # cost: costo de penalizacion (SVM)
+  if ("cost" %in% names(params)) {
+    cost_val <- params$cost
+    if (cost_val <= 0.1) {
+      interpretations$cost <- paste0("Penalizacion baja (", round(cost_val, 4), ") = margen amplio, modelo mas tolerante a errores")
+    } else if (cost_val <= 10) {
+      interpretations$cost <- paste0("Penalizacion moderada (", round(cost_val, 4), ") = buen balance margen-precision")
+    } else {
+      interpretations$cost <- paste0("Penalizacion alta (", round(cost_val, 4), ") = margen estrecho, ajuste preciso pero riesgo de sobreajuste")
+    }
+  }
+
+  # rbf_sigma: ancho del kernel (SVM)
+  if ("rbf_sigma" %in% names(params)) {
+    sigma_val <- params$rbf_sigma
+    if (sigma_val <= 0.01) {
+      interpretations$rbf_sigma <- paste0("Kernel amplio (sigma=", round(sigma_val, 4), ") = decision suave, mayor generalizacion")
+    } else if (sigma_val <= 0.1) {
+      interpretations$rbf_sigma <- paste0("Kernel moderado (sigma=", round(sigma_val, 4), ") = buen balance suavidad-complejidad")
+    } else {
+      interpretations$rbf_sigma <- paste0("Kernel estrecho (sigma=", round(sigma_val, 4), ") = decision compleja, riesgo de sobreajuste")
+    }
+  }
+
+  # hidden_units: neuronas ocultas (nnet)
+  if ("hidden_units" %in% names(params)) {
+    hu_val <- params$hidden_units
+    if (hu_val <= 5) {
+      interpretations$hidden_units <- paste0("Pocas neuronas (", hu_val, ") = modelo simple, captura patrones lineales o basicos")
+    } else if (hu_val <= 15) {
+      interpretations$hidden_units <- paste0("Neuronas moderadas (", hu_val, ") = buen balance capacidad-generalizacion")
+    } else {
+      interpretations$hidden_units <- paste0("Muchas neuronas (", hu_val, ") = alta capacidad, captura patrones complejos")
+    }
+  }
+
+  # penalty: regularizacion (nnet)
+  if ("penalty" %in% names(params)) {
+    pen_val <- params$penalty
+    if (pen_val <= 0.001) {
+      interpretations$penalty <- paste0("Regularizacion minima (", round(pen_val, 4), ") = red libre para aprender, riesgo de sobreajuste")
+    } else if (pen_val <= 0.1) {
+      interpretations$penalty <- paste0("Regularizacion moderada (", round(pen_val, 4), ") = buen balance flexibilidad-control")
+    } else {
+      interpretations$penalty <- paste0("Regularizacion fuerte (", round(pen_val, 4), ") = pesos restringidos, modelo mas simple")
+    }
+  }
+
+  # cost_complexity: parametro de poda (tree)
+  if ("cost_complexity" %in% names(params)) {
+    cp_val <- params$cost_complexity
+    if (cp_val <= 0.001) {
+      interpretations$cost_complexity <- paste0("Poda minima (cp=", round(cp_val, 4), ") = arbol complejo, captura detalles finos")
+    } else if (cp_val <= 0.01) {
+      interpretations$cost_complexity <- paste0("Poda moderada (cp=", round(cp_val, 4), ") = buen balance complejidad-simplicidad")
+    } else {
+      interpretations$cost_complexity <- paste0("Poda agresiva (cp=", round(cp_val, 4), ") = arbol simple, mas generalizable")
+    }
+  }
+
   return(interpretations)
 }
 
@@ -325,6 +414,32 @@ tune_best_model <- function(modeling_result,
       trees = 500
     ) |>
       parsnip::set_engine("xgboost") |>
+      parsnip::set_mode(task)
+
+  } else if (model_name == "svm") {
+    tune_spec <- parsnip::svm_rbf(
+      cost = tune::tune(),
+      rbf_sigma = tune::tune()
+    ) |>
+      parsnip::set_engine("kernlab") |>
+      parsnip::set_mode(task)
+
+  } else if (model_name == "nnet") {
+    tune_spec <- parsnip::mlp(
+      hidden_units = tune::tune(),
+      penalty = tune::tune(),
+      epochs = 100
+    ) |>
+      parsnip::set_engine("nnet") |>
+      parsnip::set_mode(task)
+
+  } else if (model_name == "tree") {
+    tune_spec <- parsnip::decision_tree(
+      cost_complexity = tune::tune(),
+      tree_depth = tune::tune(),
+      min_n = tune::tune()
+    ) |>
+      parsnip::set_engine("rpart") |>
       parsnip::set_mode(task)
   }
 
