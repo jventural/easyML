@@ -554,6 +554,39 @@ prep_recipe <- function(data, target, task, impute = TRUE,
       cat("\n      [-] MULTICOLINEALIDAD: Desactivada (remove_high_vif = FALSE)\n")
     }
 
+    # Balanceo de clases
+    if (balance_classes && task == "classification") {
+      # Prep temporal para mostrar distribucion post-balanceo
+      tryCatch({
+        prepped_temp <- recipes::prep(rec, training = data)
+        baked_temp <- recipes::bake(prepped_temp, new_data = NULL)
+        target_post <- baked_temp[[target]]
+        tbl_post <- table(target_post)
+        tbl_pre <- table(data[[target]])
+        n_pre <- nrow(data)
+        n_post <- nrow(baked_temp)
+
+        cat("\n      [+] BALANCEO DE CLASES (", toupper(balance_method), "):\n", sep = "")
+        cat("          Distribucion ANTES del balanceo:\n")
+        for (lvl in names(tbl_pre)) {
+          pct <- round(tbl_pre[lvl] / n_pre * 100, 1)
+          cat("            - Clase", lvl, ":", tbl_pre[lvl], "(", pct, "%)\n")
+        }
+        cat("          Distribucion DESPUES del balanceo:\n")
+        for (lvl in names(tbl_post)) {
+          pct <- round(tbl_post[lvl] / n_post * 100, 1)
+          cat("            - Clase", lvl, ":", tbl_post[lvl], "(", pct, "%)\n")
+        }
+        n_synth <- n_post - n_pre
+        cat("          Muestras sinteticas generadas:", n_synth, "\n")
+        cat("          Total observaciones para entrenamiento:", n_post, "\n")
+        rm(prepped_temp, baked_temp, target_post)
+      }, error = function(e) {
+        cat("\n      [+] BALANCEO DE CLASES (", toupper(balance_method), "):\n", sep = "")
+        cat("          Configurado con over_ratio = 1 (balanceo 1:1)\n")
+      })
+    }
+
     cat("\n")
   }
 
