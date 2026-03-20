@@ -166,17 +166,27 @@ fit_models_cv <- function(model_specs, recipe, cv_folds, task, select_metric = N
 
   # Definir metricas
   if (task == "classification") {
-    # F2-Score: F-beta con beta=2 (prioriza recall sobre precision)
-    f2_meas <- yardstick::metric_tweak("f2_meas", yardstick::f_meas, beta = 2)
 
     if (n_levels == 2) {
-      # Binary: incluir pr_auc
+      # Binary: detectar event_level para consistencia con eval_metrics()
+      event_info <- .detect_event_level(factor(train_data[[target_var]]))
+      el <- event_info$event_level
+
+      # Tweak metricas que dependen de event_level
+      # Nota: roc_auc y pr_auc NO se tweakean porque son metricas de probabilidad
+      # y su calculo dentro de tune::fit_resamples() se invierte incorrectamente.
+      # ROC-AUC es simetrico y no cambia con event_level.
+      sensitivity_el <- yardstick::metric_tweak("sensitivity", yardstick::sensitivity, event_level = el)
+      specificity_el <- yardstick::metric_tweak("specificity", yardstick::specificity, event_level = el)
+      f_meas_el <- yardstick::metric_tweak("f_meas", yardstick::f_meas, event_level = el)
+      f2_meas <- yardstick::metric_tweak("f2_meas", yardstick::f_meas, beta = 2, event_level = el)
+
       metrics_set <- yardstick::metric_set(
         yardstick::roc_auc,
         yardstick::accuracy,
-        yardstick::sensitivity,
-        yardstick::specificity,
-        yardstick::f_meas,
+        sensitivity_el,
+        specificity_el,
+        f_meas_el,
         yardstick::bal_accuracy,
         yardstick::pr_auc,
         yardstick::mcc,
@@ -185,6 +195,9 @@ fit_models_cv <- function(model_specs, recipe, cv_folds, task, select_metric = N
       )
     } else {
       # Multiclass: excluir pr_auc (no soporta multiclass)
+      # F2-Score: F-beta con beta=2 (prioriza recall sobre precision)
+      f2_meas <- yardstick::metric_tweak("f2_meas", yardstick::f_meas, beta = 2)
+
       metrics_set <- yardstick::metric_set(
         yardstick::roc_auc,
         yardstick::accuracy,
