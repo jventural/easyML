@@ -42,7 +42,10 @@ Imports:
     stats,
     pROC,
     rlang,
-    jsonlite
+    jsonlite,
+    parallel,
+    doParallel,
+    foreach
 Suggests:
     knitr,
     kableExtra,

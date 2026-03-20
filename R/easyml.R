@@ -57,6 +57,8 @@
 #' @param check_leakage Verificar posible data leakage (default: TRUE).
 #' @param nested_cv Usar nested CV para estimacion menos sesgada (default: FALSE).
 #' @param analyze_interactions Analizar interacciones y efectos no lineales (default: TRUE).
+#' @param n_cores Numero de cores para procesamiento paralelo. NULL (default)
+#'   usa todos los cores disponibles menos 1. Usar 1 para procesamiento secuencial.
 #' @param seed Semilla para reproducibilidad (default: 2024).
 #' @param verbose Mostrar progreso en consola (default: TRUE).
 #'
@@ -163,6 +165,7 @@ easy_ml <- function(data,
                     check_leakage = TRUE,
                     nested_cv = FALSE,
                     analyze_interactions = TRUE,
+                    n_cores = NULL,
                     seed = 2024,
                     verbose = TRUE) {
 
@@ -197,8 +200,8 @@ easy_ml <- function(data,
         optimize_threshold = optimize_threshold, threshold_method = threshold_method,
         calibrate_probs = calibrate_probs, calibration_method = calibration_method,
         check_leakage = check_leakage, nested_cv = nested_cv,
-        analyze_interactions = analyze_interactions, seed = seed,
-        verbose = TRUE
+        analyze_interactions = analyze_interactions, n_cores = n_cores,
+        seed = seed, verbose = TRUE
       )
     }, finally = {
       # Siempre cerrar el sink
@@ -236,8 +239,8 @@ easy_ml <- function(data,
       optimize_threshold = optimize_threshold, threshold_method = threshold_method,
       calibrate_probs = calibrate_probs, calibration_method = calibration_method,
       check_leakage = check_leakage, nested_cv = nested_cv,
-      analyze_interactions = analyze_interactions, seed = seed,
-      verbose = FALSE
+      analyze_interactions = analyze_interactions, n_cores = n_cores,
+      seed = seed, verbose = FALSE
     )
   }
 
@@ -285,6 +288,7 @@ easy_ml <- function(data,
                               check_leakage = TRUE,
                               nested_cv = FALSE,
                               analyze_interactions = TRUE,
+                              n_cores = NULL,
                               seed = 2024,
                               verbose = TRUE) {
 
@@ -292,6 +296,27 @@ easy_ml <- function(data,
   oldw <- getOption("warn")
   options(warn = -1)
   on.exit(options(warn = oldw))
+
+  # Configurar procesamiento paralelo
+  parallel_active <- FALSE
+  if (is.null(n_cores)) {
+    n_cores <- max(1, parallel::detectCores() - 1)
+  }
+  if (n_cores > 1) {
+    tryCatch({
+      cl <- parallel::makeCluster(n_cores)
+      doParallel::registerDoParallel(cl)
+      parallel_active <- TRUE
+      on.exit({
+        parallel::stopCluster(cl)
+        foreach::registerDoSEQ()
+        options(warn = oldw)
+      })
+    }, error = function(e) {
+      # Si falla la paralelizacion, continuar secuencial
+      n_cores <- 1L
+    })
+  }
 
   set.seed(seed)
   task <- match.arg(task)
@@ -342,6 +367,7 @@ easy_ml <- function(data,
     cat("Variable objetivo:", target, "\n")
     cat("Tarea:", task, "\n")
     cat("Modelos:", paste(models, collapse = ", "), "\n")
+    cat("Procesamiento paralelo:", if (parallel_active) paste0("SI (", n_cores, " cores)") else "NO (secuencial)", "\n")
     cat("Metrica de seleccion:", select_metric,
         if (metric_auto_selected) "(auto)" else "(usuario)", "\n")
     if (metric_auto_selected) {
