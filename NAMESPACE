@@ -131,7 +131,7 @@ S3method(predict, unsupervisedml)
 importFrom(stats, sd, uniroot, plogis, rbinom, rnorm, nls, coef, predict,
            as.formula, model.frame, model.response, model.matrix, reorder,
            shapiro.test, cor, lm, quantile, median, aggregate, glm, binomial,
-           var, dist, hclust, cutree, kmeans, prcomp, mahalanobis, cov, det,
+           var, dist, hclust, cutree, kmeans, prcomp, mahalanobis, cov,
            qchisq, as.dendrogram)
 importFrom(utils, head)
 importFrom(pROC, roc, auc, multiclass.roc)
