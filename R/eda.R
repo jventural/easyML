@@ -99,7 +99,7 @@ eda_summary <- function(data, target = NULL, task = "auto", verbose = TRUE) {
 
   results$task <- task
   results$target <- target
-  class(results) <- c("easyml_eda", "list")
+  class(results) <- c("supervisedml_eda", "list")
 
   return(results)
 }
@@ -544,7 +544,7 @@ eda_basic <- function(data, verbose = TRUE) {
   if (verbose) .print_subsection(1, 6, "Matriz de Correlacion")
   results$correlation <- eda_correlation_basic(data, verbose = verbose)
 
-  class(results) <- c("easyml_eda", "list")
+  class(results) <- c("supervisedml_eda", "list")
   return(results)
 }
 

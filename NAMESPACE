@@ -1,9 +1,9 @@
 # =============================================================================
-# NAMESPACE para easyML v2.0.0
+# NAMESPACE para easyML v2.1.0
 # =============================================================================
 
-# FUNCION PRINCIPAL
-export(easy_ml)
+# FUNCION PRINCIPAL (SUPERVISADO)
+export(supervised_ml)
 
 # FUNCIONES EDA
 export(eda_summary)
@@ -85,14 +85,14 @@ export(run_nested_cv)
 export(cv_feature_selection)
 
 # FUNCIONES DE EXPORTACION Y REPORTES
-export(easy_ml_capture)
+export(supervised_ml_capture)
 export(export_verbose_txt)
 export(export_verbose_json)
-export(easy_ml_export)
+export(supervised_ml_export)
 export(generate_report_from_json)
 export(generate_report_with_ai)
 export(launch_report_generator)
-export(launch_easyml_app)
+export(launch_supervisedml_app)
 export(explain_with_ai)
 
 # FUNCIONES DE GRAFICOS
@@ -107,20 +107,31 @@ export(auto_feature_engineering)
 export(apply_custom_features)
 export(analyze_interactions_splines)
 
+# FUNCIONES UNSUPERVISED ML
+export(unsupervised_ml)
+export(cluster_profile)
+export(save_unsupervised_plots)
+
 # METODOS S3
-S3method(print, easyml)
-S3method(predict, easyml)
-S3method(summary, easyml)
-S3method(plot, easyml)
-S3method(plot_all, easyml)
+S3method(print, supervisedml)
+S3method(predict, supervisedml)
+S3method(summary, supervisedml)
+S3method(plot, supervisedml)
+S3method(plot_all, supervisedml)
 S3method(plot_all, ml_sample_size)
 S3method(print, ml_sample_size)
 S3method(print, block_split)
 S3method(print, diversity_split)
+S3method(print, unsupervisedml)
+S3method(summary, unsupervisedml)
+S3method(plot, unsupervisedml)
+S3method(predict, unsupervisedml)
 
 # IMPORTS
 importFrom(stats, sd, uniroot, plogis, rbinom, rnorm, nls, coef, predict,
            as.formula, model.frame, model.response, model.matrix, reorder,
-           shapiro.test, cor, lm, quantile, median, aggregate, glm, binomial)
+           shapiro.test, cor, lm, quantile, median, aggregate, glm, binomial,
+           var, dist, hclust, cutree, kmeans, prcomp, mahalanobis, cov, det,
+           qchisq, as.dendrogram)
 importFrom(utils, head)
 importFrom(pROC, roc, auc, multiclass.roc)

@@ -1,9 +1,9 @@
 
 # =============================================================================
-# easyML: Funcion Principal para Machine Learning Automatizado
+# easyML: Funcion Principal para Machine Learning Supervisado
 # =============================================================================
 
-#' @title easyML: Machine Learning Automatizado para Clasificacion y Regresion
+#' @title supervised_ml: Machine Learning Supervisado para Clasificacion y Regresion
 #'
 #' @description
 #' Funcion principal que ejecuta un pipeline completo de Machine Learning.
@@ -62,12 +62,12 @@
 #' @param seed Semilla para reproducibilidad (default: 2024).
 #' @param verbose Mostrar progreso en consola (default: TRUE).
 #'
-#' @return Objeto de clase easyml con resultados completos del analisis ML.
+#' @return Objeto de clase supervisedml con resultados completos del analisis ML.
 #'
 #' @examples
 #' \dontrun{
 #' # Ejemplo basico
-#' resultado <- easy_ml(
+#' resultado <- supervised_ml(
 #'   data = mis_datos,
 #'   target = "mi_variable",
 #'   task = "classification"
@@ -85,7 +85,7 @@
 #' # =====================================================
 #'
 #' # Opcion 1: Capturar verbose durante el analisis
-#' resultado <- easy_ml_capture(
+#' resultado <- supervised_ml_capture(
 #'   data = mis_datos,
 #'   target = "mi_variable",
 #'   task = "classification"
@@ -98,7 +98,7 @@
 #' export_verbose_json(resultado, "mi_analisis.json")
 #'
 #' # Opcion 2: Exportar todo en un solo paso
-#' resultado <- easy_ml_export(
+#' resultado <- supervised_ml_export(
 #'   data = mis_datos,
 #'   target = "mi_variable",
 #'   task = "classification",
@@ -127,7 +127,7 @@
 #' }
 #'
 #' @export
-easy_ml <- function(data,
+supervised_ml <- function(data,
                     target,
                     task = c("auto", "classification", "regression"),
                     models = c("rf", "xgboost", "svm", "nnet", "glm", "tree"),
@@ -183,7 +183,7 @@ easy_ml <- function(data,
     sink(temp_file, split = TRUE)
 
     tryCatch({
-      resultado <- .easy_ml_internal(
+      resultado <- .supervised_ml_internal(
         data = data, target = target, task = task, models = models,
         test_split = test_split, cv_folds = cv_folds, select_metric = select_metric,
         tune_best = tune_best, tune_method = tune_method, tune_grid = tune_grid,
@@ -222,7 +222,7 @@ easy_ml <- function(data,
 
   } else {
     # Sin verbose, ejecutar directamente
-    resultado <- .easy_ml_internal(
+    resultado <- .supervised_ml_internal(
       data = data, target = target, task = task, models = models,
       test_split = test_split, cv_folds = cv_folds, select_metric = select_metric,
       tune_best = tune_best, tune_method = tune_method, tune_grid = tune_grid,
@@ -248,9 +248,9 @@ easy_ml <- function(data,
 }
 
 
-#' @title Funcion Interna de easyML
+#' @title Funcion Interna de supervised_ml
 #' @noRd
-.easy_ml_internal <- function(data,
+.supervised_ml_internal <- function(data,
                               target,
                               task = c("auto", "classification", "regression"),
                               models = c("rf", "xgboost", "svm", "nnet", "glm", "tree"),
@@ -361,7 +361,7 @@ easy_ml <- function(data,
   }
 
   if (verbose) {
-    .msg_header("easyML - Machine Learning Automatizado")
+    .msg_header("supervised_ml - Machine Learning Supervisado")
     cat("Observaciones:", nrow(data), "\n")
     cat("Variables:", ncol(data) - 1, "\n")
     cat("Variable objetivo:", target, "\n")
@@ -444,7 +444,7 @@ easy_ml <- function(data,
       best_params = NULL,
       final_workflow = .create_final_workflow(modeling_result$best_model, task, preprocess_result$recipe)
     )
-    class(tuning_result) <- c("easyml_tuning", "list")
+    class(tuning_result) <- c("supervisedml_tuning", "list")
     if (verbose) {
       .print_section(6, "Tuning de Hiperparametros")
       cat("\n    Tuning omitido por configuracion\n")
@@ -475,7 +475,7 @@ easy_ml <- function(data,
       .print_section(6, "Interpretabilidad del Modelo")
       cat("\n    [!] Seccion omitida: run_shap = FALSE\n")
       cat("    Para calcular importancia de variables y valores SHAP, ejecute\n")
-      cat("    easy_ml(..., run_shap = TRUE)\n")
+      cat("    supervised_ml(..., run_shap = TRUE)\n")
     }
   }
 
@@ -664,7 +664,7 @@ easy_ml <- function(data,
     seed = seed, elapsed_time = elapsed, date = Sys.time()
   )
 
-  class(resultado) <- c("easyml", "list")
+  class(resultado) <- c("supervisedml", "list")
 
   if (verbose) {
     # Labels legibles para metricas
@@ -718,10 +718,10 @@ easy_ml <- function(data,
 
 
 #' @export
-print.easyml <- function(x, ...) {
+print.supervisedml <- function(x, ...) {
   cat("\n")
   cat(.line("="), "\n")
-  cat("  easyML - Resultados del Analisis\n")
+  cat("  supervised_ml - Resultados del Analisis\n")
   cat(.line("="), "\n\n")
 
   cat("CONFIGURACION:\n")
@@ -779,9 +779,9 @@ print.easyml <- function(x, ...) {
 }
 
 
-#' @title Predecir con modelo easyML
+#' @title Predecir con modelo supervised_ml
 #' @export
-predict.easyml <- function(object, new_data, type = "class", ...) {
+predict.supervisedml <- function(object, new_data, type = "class", ...) {
   if (type == "prob" && object$task == "classification") {
     stats::predict(object$final_fit, new_data = new_data, type = "prob")
   } else {
@@ -790,10 +790,10 @@ predict.easyml <- function(object, new_data, type = "class", ...) {
 }
 
 
-#' @title Resumen del modelo easyML
+#' @title Resumen del modelo supervised_ml
 #' @export
-summary.easyml <- function(object, ...) {
-  cat("\n=== Resumen easyML ===\n\n")
+summary.supervisedml <- function(object, ...) {
+  cat("\n=== Resumen supervised_ml ===\n\n")
   cat("Tarea:", object$task, "\n")
   cat("Target:", object$target, "\n")
   cat("Mejor modelo:", .get_model_label(object$best_model), "\n\n")

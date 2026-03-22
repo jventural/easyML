@@ -222,7 +222,7 @@ auto_feature_engineering <- function(data, target, verbose = TRUE) {
     cat("    NOTA: Estas son transformaciones genericas automaticas.\n")
     cat("    Para mejorar mas, considere crear variables especificas\n")
     cat("    de su dominio usando el argumento custom_features:\n\n")
-    cat("      resultado <- easy_ml(data, target = \"mi_target\",\n")
+    cat("      resultado <- supervised_ml(data, target = \"mi_target\",\n")
     cat("        custom_features = list(\n")
     cat("          familia_total = \"SibSp + Parch\",\n")
     cat("          bmi_cat = \"ifelse(mass > 30, 1, 0)\"\n")

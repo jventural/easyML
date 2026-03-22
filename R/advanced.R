@@ -743,7 +743,7 @@ advanced_residual_analysis <- function(predictions, target, verbose = TRUE) {
   results$predicted <- pred
   results$observed <- obs
 
-  class(results) <- c("easyml_residuals", "list")
+  class(results) <- c("supervisedml_residuals", "list")
   results
 }
 

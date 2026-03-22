@@ -9,7 +9,7 @@
 #' Los graficos se almacenan con numeracion (Figura 1, Figura 2, etc.) y
 #' nombres descriptivos para facilitar su referencia en reportes.
 #'
-#' @param x Objeto easyml
+#' @param x Objeto supervisedml
 #' @param verbose Mostrar progreso
 #'
 #' @return Lista con graficos y catalogo de figuras
@@ -181,7 +181,7 @@ generate_all_plots <- function(x, verbose = TRUE) {
       importance = x$importance,
       shap = x$interpretation$shap
     )
-    class(interpret_obj) <- c("easyml_interpret", "list")
+    class(interpret_obj) <- c("supervisedml_interpret", "list")
 
     # 5a. SHAP Bar Plot (importancia)
     fig_num <- fig_num + 1
@@ -221,12 +221,12 @@ generate_all_plots <- function(x, verbose = TRUE) {
 }
 
 
-#' @title Graficar resultados de easyML
+#' @title Graficar resultados de supervised_ml
 #'
 #' @description
 #' Genera visualizaciones de los resultados del analisis ML.
 #'
-#' @param x Objeto easyml
+#' @param x Objeto supervisedml
 #' @param type Tipo de grafico: "panel", "all", "importance", "metrics",
 #'             "confusion", "roc", "residuals", "pred_vs_obs", "tuning",
 #'             "threshold", "calibration"
@@ -237,7 +237,7 @@ generate_all_plots <- function(x, verbose = TRUE) {
 #'
 #' @examples
 #' \dontrun{
-#' result <- easy_ml(data, target = "outcome")
+#' result <- supervised_ml(data, target = "outcome")
 #' plot(result)                    # Panel combinado
 #' plot(result, type = "all")      # Lista con todos los graficos
 #' plot(result, type = "importance")
@@ -245,7 +245,7 @@ generate_all_plots <- function(x, verbose = TRUE) {
 #' }
 #'
 #' @export
-plot.easyml <- function(x, type = "panel", top_n = 15, ...) {
+plot.supervisedml <- function(x, type = "panel", top_n = 15, ...) {
 
   # Obtener plots - ahora pueden estar en estructura nueva o antigua
   plots_data <- x$plots
@@ -262,7 +262,7 @@ plot.easyml <- function(x, type = "panel", top_n = 15, ...) {
 
   # Panel combinado
   if (type == "panel") {
-    return(plot_all.easyml(x))
+    return(plot_all.supervisedml(x))
   }
 
   # Todos los graficos
@@ -505,7 +505,7 @@ plot.easyml <- function(x, type = "panel", top_n = 15, ...) {
 #' @description
 #' Genera un panel con todos los graficos relevantes.
 #'
-#' @param x Objeto easyml
+#' @param x Objeto supervisedml
 #' @param ... Argumentos adicionales
 #'
 #' @return Panel de graficos
@@ -516,7 +516,7 @@ plot_all <- function(x, ...) {
 
 
 #' @export
-plot_all.easyml <- function(x, ...) {
+plot_all.supervisedml <- function(x, ...) {
 
   if (!requireNamespace("patchwork", quietly = TRUE)) {
     stop("Instalar paquete patchwork: install.packages(patchwork)")
@@ -578,10 +578,10 @@ plot_all.easyml <- function(x, ...) {
 #' @title Guardar Todos los Graficos
 #'
 #' @description
-#' Guarda todos los graficos de un objeto easyml en archivos PNG con nombres
+#' Guarda todos los graficos de un objeto supervisedml en archivos PNG con nombres
 #' descriptivos (Figura_1_Importancia_Variables.png, etc.).
 #'
-#' @param x Objeto easyml
+#' @param x Objeto supervisedml
 #' @param path Directorio donde guardar
 #' @param prefix Prefijo para los nombres de archivo (opcional)
 #' @param width Ancho en pulgadas
@@ -641,7 +641,7 @@ save_all_plots <- function(x, path = ".", prefix = NULL, width = 8, height = 6, 
   }
 
   tryCatch({
-    panel <- plot_all.easyml(x)
+    panel <- plot_all.supervisedml(x)
     if (!is.null(panel)) {
       panel_name <- ifelse(is.null(prefix),
                            "Figura_0_Panel_Resumen.png",
@@ -687,9 +687,9 @@ save_all_plots <- function(x, path = ".", prefix = NULL, width = 8, height = 6, 
 #' @title Obtener Catalogo de Figuras
 #'
 #' @description
-#' Devuelve el catalogo de figuras generadas por easy_ml().
+#' Devuelve el catalogo de figuras generadas por supervised_ml().
 #'
-#' @param x Objeto easyml
+#' @param x Objeto supervisedml
 #'
 #' @return Data frame con el catalogo de figuras
 #' @export
@@ -733,7 +733,7 @@ get_figures_catalog <- function(x) {
 #' @description
 #' Imprime el catalogo de figuras para el usuario.
 #'
-#' @param x Objeto easyml
+#' @param x Objeto supervisedml
 #'
 #' @return NULL (invisible)
 #' @export
@@ -773,14 +773,14 @@ print_figures_catalog <- function(x) {
 #' Cada modelo se representa como una linea conectando sus valores en cada
 #' metrica, facilitando la comparacion visual de fortalezas y debilidades.
 #'
-#' @param x Objeto easyml o data.frame. Si es un objeto easyml, se extrae
+#' @param x Objeto supervisedml o data.frame. Si es un objeto supervisedml, se extrae
 #'   \code{cv_summary} automaticamente. Si es un data.frame, debe tener una
 #'   columna \code{model} y columnas numericas con las metricas.
 #' @param metrics Character vector con nombres de metricas a incluir. Si es
 #'   \code{NULL} (por defecto), se incluyen todas las metricas numericas
 #'   disponibles.
 #' @param highlight Character. Nombre del modelo a resaltar. Si es \code{NULL},
-#'   se resalta el mejor modelo (si \code{x} es un objeto easyml).
+#'   se resalta el mejor modelo (si \code{x} es un objeto supervisedml).
 #' @param size_point Numeric. Tamano de los puntos (default 3.5).
 #' @param size_line Numeric. Grosor de las lineas (default 0.9).
 #' @param show_values Logical. Mostrar valores numericos sobre los puntos
@@ -791,7 +791,7 @@ print_figures_catalog <- function(x) {
 #'
 #' @examples
 #' \dontrun{
-#' resultado <- easy_ml(data, target = "clase")
+#' resultado <- supervised_ml(data, target = "clase")
 #' plot_metrics_profile(resultado)
 #' plot_metrics_profile(resultado, metrics = c("roc_auc", "mcc", "f_meas", "kap"))
 #' }
@@ -804,13 +804,13 @@ plot_metrics_profile <- function(x, metrics = NULL, highlight = NULL,
   }
 
   # Extraer datos
-  if (inherits(x, "easyml")) {
+  if (inherits(x, "supervisedml")) {
     cv_data <- x$cv_summary
     if (is.null(highlight)) highlight <- x$best_model
   } else if (is.data.frame(x)) {
     cv_data <- x
   } else {
-    stop("x debe ser un objeto easyml o un data.frame con columna 'model'")
+    stop("x debe ser un objeto supervisedml o un data.frame con columna 'model'")
   }
 
   if (is.null(cv_data) || !"model" %in% names(cv_data)) {

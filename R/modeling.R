@@ -75,7 +75,7 @@ train_models <- function(preprocess_result,
   results$target <- target
   results$recipe <- recipe
   results$train_data <- train_data
-  class(results) <- c("easyml_modeling", "list")
+  class(results) <- c("supervisedml_modeling", "list")
 
   return(results)
 }

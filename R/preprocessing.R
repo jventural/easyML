@@ -130,7 +130,7 @@ preprocess_data <- function(data,
 
   results$task <- task
   results$target <- target
-  class(results) <- c("easyml_preprocess", "list")
+  class(results) <- c("supervisedml_preprocess", "list")
 
   return(results)
 }

@@ -144,7 +144,7 @@ evaluate_model <- function(tuning_result,
   results <- list()
 
   # Obtener workflow final
-  if (inherits(tuning_result, "easyml_tuning")) {
+  if (inherits(tuning_result, "supervisedml_tuning")) {
     final_wf <- tuning_result$final_workflow
   } else {
     final_wf <- tuning_result$final_workflow
@@ -236,7 +236,7 @@ evaluate_model <- function(tuning_result,
 
   results$task <- task
   results$target <- target
-  class(results) <- c("easyml_evaluation", "list")
+  class(results) <- c("supervisedml_evaluation", "list")
 
   return(results)
 }

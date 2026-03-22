@@ -175,7 +175,7 @@ tune_best_model <- function(modeling_result,
 
   results$task <- task
   results$method <- method
-  class(results) <- c("easyml_tuning", "list")
+  class(results) <- c("supervisedml_tuning", "list")
 
   return(results)
 }

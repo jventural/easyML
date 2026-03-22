@@ -7,18 +7,18 @@
 #' @title Capturar Verbose Output
 #'
 #' @description
-#' Ejecuta easy_ml capturando todo el output verbose para exportacion.
+#' Ejecuta supervised_ml capturando todo el output verbose para exportacion.
 #'
-#' @param ... Argumentos para easy_ml()
+#' @param ... Argumentos para supervised_ml()
 #'
 #' @return Lista con resultados y verbose capturado
 #' @export
-easy_ml_capture <- function(...) {
+supervised_ml_capture <- function(...) {
 
 
   # Capturar el output
   verbose_output <- capture.output({
-    result <- easy_ml(..., verbose = TRUE)
+    result <- supervised_ml(..., verbose = TRUE)
   }, type = "output")
 
   # Agregar verbose al resultado
@@ -37,17 +37,17 @@ easy_ml_capture <- function(...) {
 #'
 #' @description
 #' Exporta el resultado de easyML como archivo de texto.
-#' Ahora easy_ml() captura automaticamente el verbose, por lo que
+#' Ahora supervised_ml() captura automaticamente el verbose, por lo que
 #' esta funcion exporta EXACTAMENTE el mismo output que aparece en consola.
 #'
-#' @param result Resultado de easy_ml() o easy_ml_capture()
+#' @param result Resultado de supervised_ml() o supervised_ml_capture()
 #' @param file_path Ruta del archivo de salida
 #'
 #' @return Invisiblemente, la ruta del archivo
 #' @export
-export_verbose_txt <- function(result, file_path = "easyml_report.txt") {
+export_verbose_txt <- function(result, file_path = "supervisedml_report.txt") {
 
-  # Verificar que tenga verbose_text (easy_ml() ahora lo captura automaticamente)
+  # Verificar que tenga verbose_text (supervised_ml() ahora lo captura automaticamente)
   if (!is.null(result$verbose_text) && nzchar(result$verbose_text)) {
     txt_content <- result$verbose_text
   } else {
@@ -65,7 +65,7 @@ export_verbose_txt <- function(result, file_path = "easyml_report.txt") {
 }
 
 
-#' @title Construir TXT desde Resultado de easy_ml
+#' @title Construir TXT desde Resultado de supervised_ml
 #' @noRd
 .build_txt_from_result <- function(result) {
 
@@ -466,15 +466,15 @@ export_verbose_txt <- function(result, file_path = "easyml_report.txt") {
 #'
 #' @description
 #' Exporta el resultado de easyML como archivo JSON estructurado.
-#' Ahora easy_ml() captura automaticamente el verbose, por lo que
+#' Ahora supervised_ml() captura automaticamente el verbose, por lo que
 #' el JSON incluye el verbose completo que aparecio en consola.
 #'
-#' @param result Resultado de easy_ml() o easy_ml_capture()
+#' @param result Resultado de supervised_ml() o supervised_ml_capture()
 #' @param file_path Ruta del archivo de salida
 #'
 #' @return Invisiblemente, la ruta del archivo
 #' @export
-export_verbose_json <- function(result, file_path = "easyml_report.json") {
+export_verbose_json <- function(result, file_path = "supervisedml_report.json") {
 
   # Construir estructura JSON desde el resultado
   json_structure <- .build_json_from_result(result)
@@ -497,7 +497,7 @@ export_verbose_json <- function(result, file_path = "easyml_report.json") {
 }
 
 
-#' @title Construir JSON desde Resultado de easy_ml
+#' @title Construir JSON desde Resultado de supervised_ml
 #' @noRd
 .build_json_from_result <- function(result) {
 
@@ -507,7 +507,7 @@ export_verbose_json <- function(result, file_path = "easyml_report.json") {
   json_structure <- list(
     metadata = list(
       generated_at = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
-      easyml_version = "2.0.0",
+      supervisedml_version = "2.0.0",
       task = result$task,
       target = result$target,
       best_model = result$best_model,
@@ -644,7 +644,7 @@ export_verbose_json <- function(result, file_path = "easyml_report.json") {
   json_structure <- list(
     metadata = list(
       generated_at = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
-      easyml_version = "2.0.0",
+      supervisedml_version = "2.0.0",
       task = result$task,
       target = result$target,
       best_model = result$best_model,
@@ -773,7 +773,7 @@ export_verbose_json <- function(result, file_path = "easyml_report.json") {
 #' @return Invisiblemente, la ruta del archivo generado
 #' @export
 generate_report_from_json <- function(json_path,
-                                       output_path = "easyml_report.docx",
+                                       output_path = "supervisedml_report.docx",
                                        format = c("docx", "html", "pdf"),
                                        template = c("scientific", "brief", "full")) {
 
@@ -1100,19 +1100,19 @@ launch_report_generator <- function(launch.browser = TRUE) {
 #' @title Exportar Analisis Completo
 #'
 #' @description
-#' Funcion de conveniencia que ejecuta easy_ml, captura el verbose,
+#' Funcion de conveniencia que ejecuta supervised_ml, captura el verbose,
 #' y exporta tanto TXT como JSON.
 #'
-#' @param ... Argumentos para easy_ml()
+#' @param ... Argumentos para supervised_ml()
 #' @param output_dir Directorio de salida
 #' @param prefix Prefijo para los archivos
 #'
-#' @return El resultado de easy_ml con verbose capturado
+#' @return El resultado de supervised_ml con verbose capturado
 #' @export
-easy_ml_export <- function(..., output_dir = ".", prefix = "easyml") {
+supervised_ml_export <- function(..., output_dir = ".", prefix = "supervisedml") {
 
   # Ejecutar con captura
-  result <- easy_ml_capture(...)
+  result <- supervised_ml_capture(...)
 
   # Crear nombres de archivo
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -1153,7 +1153,7 @@ easy_ml_export <- function(..., output_dir = ".", prefix = "easyml") {
 #' @examples
 #' \dontrun{
 #' # Primero ejecutar analisis y exportar JSON
-#' resultado <- easy_ml_capture(data, target = "mi_variable", task = "classification")
+#' resultado <- supervised_ml_capture(data, target = "mi_variable", task = "classification")
 #' export_verbose_json(resultado, "mi_analisis.json")
 #'
 #' # Generar reporte con IA
@@ -2060,7 +2060,7 @@ generate_report_with_ai <- function(json_path,
 #' @param launch.browser Abrir en navegador (default: TRUE)
 #'
 #' @export
-launch_easyml_app <- function(launch.browser = TRUE) {
+launch_supervisedml_app <- function(launch.browser = TRUE) {
 
   if (!requireNamespace("shiny", quietly = TRUE)) {
     stop("Package 'shiny' is required. Install with: install.packages('shiny')",
@@ -2116,7 +2116,7 @@ launch_easyml_app <- function(launch.browser = TRUE) {
               "# Check for data leakage - look for IDs or target-derived columns:\n",
               "str(your_data)\n",
               "# Try excluding suspicious variables:\n",
-              "result2 <- easy_ml(your_data, \"%s\", \"%s\", exclude_vars = c(\"suspicious_var\"))"),
+              "result2 <- supervised_ml(your_data, \"%s\", \"%s\", exclude_vars = c(\"suspicious_var\"))"),
               target, task))
       }
     } else {
@@ -2130,7 +2130,7 @@ launch_easyml_app <- function(launch.browser = TRUE) {
               "# Check for columns that are transformations of '%s':\n",
               "str(your_data)\n",
               "# Try excluding suspicious variables:\n",
-              "result2 <- easy_ml(your_data, \"%s\", \"%s\", exclude_vars = c(\"suspicious_var\"))"),
+              "result2 <- supervised_ml(your_data, \"%s\", \"%s\", exclude_vars = c(\"suspicious_var\"))"),
               target, target, task))
       }
     }
@@ -2152,9 +2152,9 @@ launch_easyml_app <- function(launch.browser = TRUE) {
             sprintf("Training %s is substantially higher than test. The model memorizes training data instead of learning general patterns.", select_metric),
             sprintf(paste0(
               "# Reduce overfitting with tuning and more CV folds:\n",
-              "result2 <- easy_ml(your_data, \"%s\", \"%s\", tune = TRUE, cv_folds = 10)\n",
+              "result2 <- supervised_ml(your_data, \"%s\", \"%s\", tune = TRUE, cv_folds = 10)\n",
               "# Or try simpler models:\n",
-              "result3 <- easy_ml(your_data, \"%s\", \"%s\", models = c(\"glm\", \"tree\"))"),
+              "result3 <- supervised_ml(your_data, \"%s\", \"%s\", models = c(\"glm\", \"tree\"))"),
               target, task, target, task))
       }
     }
@@ -2198,7 +2198,7 @@ launch_easyml_app <- function(launch.browser = TRUE) {
             "Imbalanced classes can bias models toward the majority class. Accuracy alone is misleading.",
             sprintf(paste0(
               "# Use balanced metrics:\n",
-              "result2 <- easy_ml(your_data, \"%s\", \"classification\",\n",
+              "result2 <- supervised_ml(your_data, \"%s\", \"classification\",\n",
               "                   select_metric = \"bal_accuracy\")"),
               target))
       }
@@ -2216,9 +2216,9 @@ launch_easyml_app <- function(launch.browser = TRUE) {
           "With fewer than 50 observations, ML models are prone to overfitting and unstable estimates.",
           sprintf(paste0(
             "# Use more CV folds for stability:\n",
-            "result2 <- easy_ml(your_data, \"%s\", \"%s\", cv_folds = %d)\n",
+            "result2 <- supervised_ml(your_data, \"%s\", \"%s\", cv_folds = %d)\n",
             "# Prefer simpler models:\n",
-            "result3 <- easy_ml(your_data, \"%s\", \"%s\", models = c(\"glm\", \"tree\"))"),
+            "result3 <- supervised_ml(your_data, \"%s\", \"%s\", models = c(\"glm\", \"tree\"))"),
             target, task, min(n, 10), target, task))
     } else if (n > 0 && p > 0 && (n / p) < 10) {
       add("low_ratio",
@@ -2227,7 +2227,7 @@ launch_easyml_app <- function(launch.browser = TRUE) {
           "Fewer than 10 observations per feature increases overfitting risk for complex models.",
           sprintf(paste0(
             "# Consider dimensionality reduction:\n",
-            "result2 <- easy_ml(your_data, \"%s\", \"%s\", use_pca = TRUE)"),
+            "result2 <- supervised_ml(your_data, \"%s\", \"%s\", use_pca = TRUE)"),
             target, task))
     }
   }
@@ -2247,7 +2247,7 @@ launch_easyml_app <- function(launch.browser = TRUE) {
             "When one variable dominates, the model may be fragile. If that variable is noisy or unavailable, performance collapses.",
             sprintf(paste0(
               "# Try removing the dominant variable:\n",
-              "result2 <- easy_ml(your_data, \"%s\", \"%s\",\n",
+              "result2 <- supervised_ml(your_data, \"%s\", \"%s\",\n",
               "                   exclude_vars = c(\"%s\"))"),
               target, task, imp$Variable[1]))
       }
@@ -2262,7 +2262,7 @@ launch_easyml_app <- function(launch.browser = TRUE) {
         "Default hyperparameters may not be optimal. Tuning often improves performance.",
         sprintf(paste0(
           "# Enable tuning:\n",
-          "result2 <- easy_ml(your_data, \"%s\", \"%s\",\n",
+          "result2 <- supervised_ml(your_data, \"%s\", \"%s\",\n",
           "                   tune = TRUE, tune_method = \"bayes\")"),
           target, task))
   }
@@ -2278,13 +2278,13 @@ launch_easyml_app <- function(launch.browser = TRUE) {
 #' @title Interpret ML Results with AI
 #'
 #' @description
-#' Sends the results from \code{easy_ml()} to an LLM and returns a clear
+#' Sends the results from \code{supervised_ml()} to an LLM and returns a clear
 #' interpretation of the analysis. Uses Groq (Llama 3.3 70B, free) by default
 #' with a built-in API key, or OpenAI models if you provide your own key.
 #' Runs a diagnostic engine first to detect common issues (data leakage,
 #' overfitting, class imbalance, etc.) and feeds structured findings to the AI.
 #'
-#' @param result An object of class \code{easyml} returned by \code{easy_ml()}.
+#' @param result An object of class \code{supervisedml} returned by \code{supervised_ml()}.
 #' @param api_key API key for the provider. If \code{NULL} (default), uses the
 #'   built-in Groq key (shared, limited to ~1000 requests/day across all users).
 #'   For OpenAI, you must provide your own key. You can also set the environment
@@ -2305,7 +2305,7 @@ launch_easyml_app <- function(launch.browser = TRUE) {
 #'
 #' @examples
 #' \dontrun{
-#' result <- easy_ml(iris_binary, "Species", "classification")
+#' result <- supervised_ml(iris_binary, "Species", "classification")
 #'
 #' # Default: free Groq (no key needed)
 #' explain_with_ai(result)
@@ -2331,8 +2331,8 @@ explain_with_ai <- function(result,
   language <- match.arg(language)
   provider <- match.arg(provider)
 
-  if (!inherits(result, "easyml")) {
-    stop("'result' must be an object returned by easy_ml().", call. = FALSE)
+  if (!inherits(result, "supervisedml")) {
+    stop("'result' must be an object returned by supervised_ml().", call. = FALSE)
   }
 
   if (!requireNamespace("httr", quietly = TRUE)) {
@@ -2508,7 +2508,7 @@ explain_with_ai <- function(result,
       "Eres un asistente experto en Machine Learning integrado en el paquete R easyML. ",
       "Interpretas resultados de analisis predictivos con consejo practico y directo.\n\n",
       "REGLAS ESTRICTAS:\n",
-      "- TODO codigo R que sugieras DEBE usar SOLAMENTE funciones de easyML: easy_ml(), ",
+      "- TODO codigo R que sugieras DEBE usar SOLAMENTE funciones de easyML: supervised_ml(), ",
       "explain_with_ai(), plot(), predict(), summary(). NUNCA sugieras paquetes externos ",
       "(caret, randomForest, pROC, glmnet, etc.). Si no existe funcion en easyML para algo, ",
       "dilo pero NO inventes codigo con otros paquetes.\n",
@@ -2525,15 +2525,15 @@ explain_with_ai <- function(result,
       "2. INTERPRETACION: Metricas, variables importantes, comparacion de modelos.\n",
       "3. PROXIMOS PASOS: Recomendaciones concretas con codigo R usando SOLO easyML.\n\n",
       "Ejemplo de codigo correcto:\n",
-      "  result2 <- easy_ml(data, \"target\", \"classification\", exclude_vars = c(\"var1\"))\n",
-      "  result3 <- easy_ml(data, \"target\", \"classification\", use_pca = TRUE, tune = TRUE)"
+      "  result2 <- supervised_ml(data, \"target\", \"classification\", exclude_vars = c(\"var1\"))\n",
+      "  result3 <- supervised_ml(data, \"target\", \"classification\", use_pca = TRUE, tune = TRUE)"
     )
   } else {
     paste0(
       "You are an expert Machine Learning assistant integrated into the easyML R package. ",
       "You interpret predictive analysis results with practical, direct advice.\n\n",
       "STRICT RULES:\n",
-      "- ALL R code you suggest MUST use ONLY easyML functions: easy_ml(), ",
+      "- ALL R code you suggest MUST use ONLY easyML functions: supervised_ml(), ",
       "explain_with_ai(), plot(), predict(), summary(). NEVER suggest external packages ",
       "(caret, randomForest, pROC, glmnet, etc.). If easyML has no function for something, ",
       "say so but DO NOT invent code with other packages.\n",
@@ -2550,8 +2550,8 @@ explain_with_ai <- function(result,
       "2. INTERPRETATION: Metrics, important variables, model comparison.\n",
       "3. NEXT STEPS: Concrete recommendations with R code using ONLY easyML.\n\n",
       "Example of correct code:\n",
-      "  result2 <- easy_ml(data, \"target\", \"classification\", exclude_vars = c(\"var1\"))\n",
-      "  result3 <- easy_ml(data, \"target\", \"classification\", use_pca = TRUE, tune = TRUE)"
+      "  result2 <- supervised_ml(data, \"target\", \"classification\", exclude_vars = c(\"var1\"))\n",
+      "  result3 <- supervised_ml(data, \"target\", \"classification\", use_pca = TRUE, tune = TRUE)"
     )
   }
 

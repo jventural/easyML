@@ -58,7 +58,7 @@ interpret_model <- function(evaluation_result,
   results$shap <- shap_result
   if (verbose) .print_reference("shap")
 
-  class(results) <- c("easyml_interpret", "list")
+  class(results) <- c("supervisedml_interpret", "list")
   return(results)
 }
 
