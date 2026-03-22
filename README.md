@@ -2,11 +2,14 @@
 
 [![R-CMD-check](https://img.shields.io/badge/R--CMD--check-passing-brightgreen)](https://github.com/jventural/easyML)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/jventural/easyML)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue)](https://github.com/jventural/easyML)
 
 ## Overview
 
-**easyML** is a comprehensive R package that simplifies machine learning workflows for classification and regression. With a single function call (`easy_ml()`), the package automates the entire pipeline: exploratory data analysis, preprocessing, model training, hyperparameter tuning, evaluation, interpretability, and report generation.
+**easyML** is a comprehensive R package that simplifies machine learning workflows. It provides two main pipelines:
+
+- **`supervised_ml()`** — Complete supervised learning for classification and regression: EDA, preprocessing, model training, hyperparameter tuning, evaluation, interpretability, and report generation.
+- **`unsupervised_ml()`** — Complete unsupervised learning: clustering (k-means, hierarchical, DBSCAN, GMM), dimensionality reduction (PCA, t-SNE, UMAP), and anomaly detection (Isolation Forest, LOF, Mahalanobis).
 
 Additionally, easyML provides specialized tools for **sample size estimation** via Monte Carlo simulation, and advanced **train/test splitting** strategies (block-based and diversity-based) for rigorous generalization assessment.
 
@@ -19,7 +22,7 @@ devtools::install_github("jventural/easyML")
 
 ## Quick Start
 
-### Complete ML Pipeline
+### Supervised ML Pipeline
 
 ```r
 library(easyML)
@@ -27,7 +30,7 @@ library(mlbench)
 data(PimaIndiansDiabetes)
 
 # One function does everything
-result <- easy_ml(
+result <- supervised_ml(
   data = PimaIndiansDiabetes,
   target = "diabetes",
   task = "classification",
@@ -41,6 +44,34 @@ plot(result)
 
 # Make predictions on new data
 predictions <- predict(result, new_data)
+```
+
+### Unsupervised ML Pipeline
+
+```r
+library(easyML)
+
+# Complete unsupervised analysis
+result <- unsupervised_ml(
+  data = iris,
+  exclude_cols = "Species",
+  methods = c("clustering", "reduction", "anomaly"),
+  clustering_algorithms = c("kmeans", "hierarchical", "dbscan"),
+  reduction_methods = c("pca", "tsne", "umap"),
+  anomaly_methods = c("lof", "mahalanobis"),
+  seed = 2024
+)
+
+# View results
+print(result)
+summary(result)
+plot(result)
+
+# Cluster profiles
+cluster_profile(result, original_data = iris[, 1:4])
+
+# Predict clusters for new data
+predict(result, new_data)
 ```
 
 ### Sample Size Estimation
@@ -62,9 +93,9 @@ size_result$recommend_n
 plot_learning_curve(size_result)
 ```
 
-## The `easy_ml()` Pipeline
+## The `supervised_ml()` Pipeline
 
-`easy_ml()` runs 8 stages automatically:
+`supervised_ml()` runs 8 stages automatically:
 
 | Stage | Description |
 |-------|-------------|
@@ -80,7 +111,7 @@ plot_learning_curve(size_result)
 ### Parameters
 
 ```r
-easy_ml(
+supervised_ml(
   data,
   target,
   task = c("auto", "classification", "regression"),
@@ -145,6 +176,79 @@ save_all_plots(result, path = "figures")
 predict(result, new_data)
 predict(result, new_data, type = "prob")  # Probabilities
 ```
+
+## The `unsupervised_ml()` Pipeline
+
+`unsupervised_ml()` runs 7 stages automatically:
+
+| Stage | Description |
+|-------|-------------|
+| 1. EDA | Dataset structure, missing values, descriptive stats, outliers, correlations, normality |
+| 2. Preprocessing | Variable selection, imputation, winsorization, high-correlation removal, normalization |
+| 3. Reduction | PCA (scree, loadings, biplot), t-SNE, UMAP |
+| 4. Clustering | K-means, hierarchical, DBSCAN, GMM + automatic optimal k selection |
+| 5. Evaluation | Silhouette, Calinski-Harabasz, Davies-Bouldin, Dunn index, cluster stability |
+| 6. Anomaly Detection | Isolation Forest, LOF, Mahalanobis distance + consensus voting |
+| 7. Visualization | Scree plot, biplot, cluster plots, dendrograms, anomaly score distributions |
+
+### Parameters
+
+```r
+unsupervised_ml(
+  data,
+  methods = c("clustering", "reduction", "anomaly"),
+  # Clustering
+  clustering_algorithms = c("kmeans", "hierarchical", "dbscan", "gmm"),
+  k = NULL,                        # NULL = auto (silhouette + elbow + gap)
+  k_range = 2:10,
+  distance = c("euclidean", "manhattan", "gower"),
+  hclust_method = c("ward.D2", "complete", "average", "single"),
+  dbscan_eps = NULL,               # NULL = auto
+  dbscan_minPts = 5,
+  gmm_type = "VVV",
+  # Reduction
+  reduction_methods = c("pca", "tsne", "umap"),
+  n_components = 2,
+  pca_threshold = 0.95,
+  tsne_perplexity = 30,
+  umap_n_neighbors = 15,
+  umap_min_dist = 0.1,
+  # Anomaly Detection
+  anomaly_methods = c("isolation_forest", "lof", "mahalanobis"),
+  contamination = 0.05,
+  lof_k = 20,
+  # Preprocessing
+  exclude_cols = NULL,
+  impute = TRUE,
+  normalize = TRUE,
+  normalize_method = c("zscore", "minmax"),
+  remove_high_cor = TRUE,
+  cor_threshold = 0.90,
+  # General
+  run_eda = TRUE,
+  seed = 2024,
+  verbose = TRUE
+)
+```
+
+### Clustering Algorithms
+
+| Algorithm | Code | Package | Features |
+|-----------|------|---------|----------|
+| K-Means | `"kmeans"` | stats | Fast, spherical clusters |
+| Hierarchical | `"hierarchical"` | stats | Dendrogram, flexible linkage |
+| DBSCAN | `"dbscan"` | dbscan | Density-based, handles noise |
+| GMM | `"gmm"` | mclust | Soft clustering, probabilistic |
+
+### Cluster Evaluation Metrics
+
+| Metric | Interpretation |
+|--------|---------------|
+| Silhouette | Cohesion vs separation (-1 to 1, higher = better) |
+| Calinski-Harabasz | Between/within variance ratio (higher = better) |
+| Davies-Bouldin | Average cluster similarity (lower = better) |
+| Dunn Index | Min inter-cluster / max intra-cluster distance (higher = better) |
+| Stability (Jaccard) | Bootstrap consistency (higher = more stable) |
 
 ## Module Functions
 
@@ -302,7 +406,7 @@ Export results and generate scientific reports with AI:
 
 ```r
 # Method 1: Export and launch interactive Shiny app
-result <- easy_ml_capture(data, target = "outcome", task = "classification")
+result <- supervised_ml_capture(data, target = "outcome", task = "classification")
 export_verbose_json(result, "analysis.json")
 launch_report_generator()
 
@@ -316,7 +420,7 @@ generate_report_with_ai(
 )
 
 # Method 3: One-step export (TXT + JSON)
-easy_ml_export(data, target = "outcome", task = "classification")
+supervised_ml_export(data, target = "outcome", task = "classification")
 ```
 
 ## Citation
@@ -325,8 +429,8 @@ If you use this package, please cite:
 
 ```
 Ventura-Leon, J. (2026). easyML: Easy Machine Learning Pipeline for
-Classification and Regression in R. R package version 2.0.0.
-https://github.com/jventural/easyML
+Classification, Regression, and Unsupervised Learning in R.
+R package version 2.1.0. https://github.com/jventural/easyML
 ```
 
 ## Author
