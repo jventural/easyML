@@ -555,16 +555,19 @@ supervised_ml <- function(data,
     cat("    ayudan a detectar problemas sutiles y optimizar el modelo.\n")
   }
 
-  # 7.1 Deteccion de Data Leakage (Post-Modelo)
+  # Contador dinamico para subsecciones de la seccion 7
+  adv_sub <- 0
+
+  # Deteccion de Data Leakage (Post-Modelo)
   if (check_leakage) {
+    adv_sub <- adv_sub + 1
     if (verbose) {
-      .print_subsection(7, 1, "Deteccion de Data Leakage (Post-Modelo)")
+      .print_subsection(7, adv_sub, "Deteccion de Data Leakage (Post-Modelo)")
       cat("    Las verificaciones pre-modelo (correlacion > 0.95 con target,\n")
       cat("    posibles IDs) se realizaron en EDA seccion 1.2.8.\n\n")
       cat("    Aqui se verifican indicadores que solo se pueden evaluar\n")
       cat("    despues de entrenar el modelo.\n\n")
     }
-    # Usar importancia del modelo (si no hay SHAP, usar la del modelo final)
     importance_for_leakage <- resultado$importance
     leakage_result <- detect_data_leakage(
       model_results = list(test_metrics = evaluation_result$metrics),
@@ -578,10 +581,11 @@ supervised_ml <- function(data,
   # Detectar numero de niveles del target
   n_levels <- length(levels(factor(preprocess_result$train_data[[target]])))
 
-  # 7.2 Optimizacion de Threshold (solo clasificacion binaria)
+  # Optimizacion de Threshold (solo clasificacion binaria)
   if (task == "classification" && optimize_threshold && n_levels == 2) {
+    adv_sub <- adv_sub + 1
     if (verbose) {
-      .print_subsection(7, 2, "Optimizacion de Threshold")
+      .print_subsection(7, adv_sub, "Optimizacion de Threshold")
       cat("    Por defecto, el modelo clasifica como positivo si la probabilidad\n")
       cat("    es >= 0.5. Pero este umbral no siempre es optimo. La optimizacion\n")
       cat("    busca el mejor punto de corte segun el criterio seleccionado.\n\n")
@@ -598,17 +602,19 @@ supervised_ml <- function(data,
   }
 
   if (task == "classification" && optimize_threshold && n_levels >= 3) {
+    adv_sub <- adv_sub + 1
     if (verbose) {
-      .print_subsection(7, 2, "Optimizacion de Threshold")
+      .print_subsection(7, adv_sub, "Optimizacion de Threshold")
       cat("    Optimizacion de threshold disponible solo para clasificacion binaria.\n")
       cat("    (", n_levels, " clases detectadas)\n\n", sep = "")
     }
   }
 
-  # 7.3 Analisis de Interacciones y Efectos No Lineales
+  # Analisis de Interacciones y Efectos No Lineales
   if (analyze_interactions) {
+    adv_sub <- adv_sub + 1
     if (verbose) {
-      .print_subsection(7, 3, "Analisis de Interacciones y Splines")
+      .print_subsection(7, adv_sub, "Analisis de Interacciones y Splines")
       cat("    Este analisis detecta posibles interacciones entre variables y\n")
       cat("    efectos no lineales que podrian mejorar el modelo, especialmente\n")
       cat("    para modelos lineales (GLM). Los modelos de arboles (RF, XGBoost)\n")
@@ -635,9 +641,10 @@ supervised_ml <- function(data,
     }
   }
 
-  # 7.4 Calibracion de Probabilidades (solo clasificacion binaria)
+  # Calibracion de Probabilidades (solo clasificacion binaria)
   if (task == "classification" && calibrate_probs && n_levels == 2) {
-    if (verbose) .print_subsection(7, 4, "Calibracion de Probabilidades")
+    adv_sub <- adv_sub + 1
+    if (verbose) .print_subsection(7, adv_sub, "Calibracion de Probabilidades")
     calibration_result <- calibrate_probabilities(
       predictions = evaluation_result$predictions,
       target = target,
@@ -649,16 +656,18 @@ supervised_ml <- function(data,
   }
 
   if (task == "classification" && calibrate_probs && n_levels >= 3) {
+    adv_sub <- adv_sub + 1
     if (verbose) {
-      .print_subsection(7, 4, "Calibracion de Probabilidades")
+      .print_subsection(7, adv_sub, "Calibracion de Probabilidades")
       cat("    Calibracion de probabilidades disponible solo para clasificacion binaria.\n")
       cat("    (", n_levels, " clases detectadas)\n\n", sep = "")
     }
   }
 
-  # 7.5 Analisis de Residuos Avanzado (solo regresion)
+  # Analisis de Residuos Avanzado (solo regresion)
   if (task == "regression") {
-    if (verbose) .print_subsection(7, 5, "Analisis de Residuos Avanzado")
+    adv_sub <- adv_sub + 1
+    if (verbose) .print_subsection(7, adv_sub, "Analisis de Residuos Avanzado")
     residual_result <- advanced_residual_analysis(
       predictions = evaluation_result$predictions,
       target = target,
@@ -666,11 +675,16 @@ supervised_ml <- function(data,
     )
     resultado$residual_analysis <- residual_result
     if (verbose) .print_reference("residuals")
+  } else if (verbose) {
+    adv_sub <- adv_sub + 1
+    .print_subsection(7, adv_sub, "Analisis de Residuos Avanzado")
+    cat("    (Solo disponible para tareas de regresion. Tarea actual: clasificacion)\n")
   }
 
-  # 7.6 Nested CV (opcional)
+  # Nested CV (opcional)
   if (nested_cv && modeling_result$best_model %in% c("rf", "xgboost")) {
-    if (verbose) .print_subsection(7, 6, "Nested Cross-Validation")
+    adv_sub <- adv_sub + 1
+    if (verbose) .print_subsection(7, adv_sub, "Nested Cross-Validation")
     nested_result <- run_nested_cv(
       data = preprocess_result$train_data,
       target = target,
@@ -687,9 +701,10 @@ supervised_ml <- function(data,
     if (verbose) .print_reference("nested_cv")
   }
 
-  # 7.7 Analisis de Fairness (solo clasificacion)
+  # Analisis de Fairness (solo clasificacion)
   if (task == "classification" && run_fairness && !is.null(protected_var)) {
-    if (verbose) .print_subsection(7, 7, "Analisis de Equidad (Fairness)")
+    adv_sub <- adv_sub + 1
+    if (verbose) .print_subsection(7, adv_sub, "Analisis de Equidad (Fairness)")
 
     if (!protected_var %in% names(preprocess_result$test_data)) {
       if (verbose) cat("    Variable protegida '", protected_var, "' no encontrada en test_data\n", sep = "")
@@ -711,9 +726,10 @@ supervised_ml <- function(data,
     }
   }
 
-  # 7.8 Decision Curve Analysis (solo clasificacion)
+  # Decision Curve Analysis (solo clasificacion)
   if (task == "classification" && run_dca) {
-    if (verbose) .print_subsection(7, 8, "Utilidad Clinica (Decision Curve Analysis)")
+    adv_sub <- adv_sub + 1
+    if (verbose) .print_subsection(7, adv_sub, "Utilidad Clinica (Decision Curve Analysis)")
 
     dca_result <- analyze_dca(
       predictions = evaluation_result$predictions,
