@@ -126,6 +126,8 @@
 #' @param test_data Datos de test
 #' @param target Variable objetivo
 #' @param task Tipo de tarea
+#' @param modeling_result Resultado de compare_models() (contiene CV metrics)
+#' @param best_model Nombre del mejor modelo (e.g., "rf", "xgboost", "logistic")
 #' @param verbose Mostrar progreso
 #'
 #' @return Lista con resultados de evaluacion
@@ -135,6 +137,8 @@ evaluate_model <- function(tuning_result,
                            test_data,
                            target,
                            task,
+                           modeling_result = NULL,
+                           best_model = NULL,
                            verbose = TRUE) {
 
   if (verbose) {
@@ -185,7 +189,7 @@ evaluate_model <- function(tuning_result,
   results$metrics <- metrics
   if (verbose) .print_reference("roc_auc")
 
-  # 5.4 Diagnostico de Overfitting (Train vs Test)
+  # 5.4 Diagnostico de Overfitting
   if (verbose) .print_subsection(5, 4, "Diagnostico de Overfitting")
   overfitting_diag <- .diagnose_overfitting(
     final_fit = final_fit,
@@ -193,6 +197,8 @@ evaluate_model <- function(tuning_result,
     test_metrics = metrics,
     target = target,
     task = task,
+    modeling_result = modeling_result,
+    best_model = best_model,
     verbose = verbose
   )
   results$train_metrics <- overfitting_diag$train_metrics
@@ -658,75 +664,197 @@ eval_residuals <- function(predictions, target, verbose = TRUE) {
 }
 
 
-#' @title Diagnostico de Overfitting (Train vs Test)
+#' @title Diagnostico de Overfitting (3 niveles)
+#'
+#' Tier 1: CV vs Test (todos los modelos) -- diagnostico principal
+#' Tier 2: OOB vs Test (solo Random Forest) -- estimador honesto para RF
+#' Tier 3: Train vs Test (solo modelos no-RF) -- diagnostico clasico
+#'
 #' @noRd
-.diagnose_overfitting <- function(final_fit, train_data, test_metrics, target, task, verbose = TRUE) {
+.diagnose_overfitting <- function(final_fit, train_data, test_metrics, target, task,
+                                  modeling_result = NULL, best_model = NULL,
+                                  verbose = TRUE) {
 
-  # Calcular predicciones y metricas en train
-  train_preds <- eval_predictions(final_fit, train_data, target, task, verbose = FALSE)
-  train_metrics <- eval_metrics(train_preds, target, task, verbose = FALSE)
+  is_rf <- !is.null(best_model) && tolower(best_model) == "rf"
 
-  # Metricas donde mayor es mejor vs menor es mejor
-  lower_is_better <- c("rmse", "mae")
+  # Metrica principal segun tarea
+  main_metric <- if (task == "classification") "roc_auc" else "rsq"
+  test_main <- test_metrics[test_metrics$.metric == main_metric, ".estimate"]
+  if (length(test_main) == 0) test_main <- NA_real_ else test_main <- test_main[1]
 
-  # Construir tabla comparativa
-  comparison <- merge(
-    train_metrics[, c(".metric", ".estimate")],
-    test_metrics[, c(".metric", ".estimate")],
-    by = ".metric",
-    suffixes = c("_train", "_test")
-  )
-  names(comparison) <- c("metric", "train", "test")
-
-  # Calcular gap
-  comparison$gap <- ifelse(
-    comparison$metric %in% lower_is_better,
-    comparison$test - comparison$train,  # Para error: test > train = overfitting
-    comparison$train - comparison$test    # Para accuracy: train > test = overfitting
-  )
-
-  if (verbose) {
-    cat("    Se comparan las metricas del modelo en los datos de entrenamiento\n")
-    cat("    (train) vs los datos de prueba (test). Una gran diferencia sugiere\n")
-    cat("    que el modelo memorizo los datos en lugar de aprender patrones.\n\n")
-
-    cat("    Comparacion Train vs Test:\n\n")
-    comp_display <- comparison
-    comp_display$train <- round(comp_display$train, 4)
-    comp_display$test <- round(comp_display$test, 4)
-    comp_display$gap <- round(comp_display$gap, 4)
-    print(as.data.frame(comp_display), row.names = FALSE)
-
-    # Diagnostico global: usar metrica donde mayor = mejor
-    # Clasificacion: roc_auc, Regresion: rsq (R-squared)
-    # Nota: RMSE gap% no discrimina bien en modelos de arboles (~50% siempre)
-    #       R-squared gap si discrimina correctamente
-    # Umbrales calibrados con simulacion Monte Carlo (N=100 por escenario)
-    main_metric <- if (task == "classification") "roc_auc" else "rsq"
-    main_row <- comparison[comparison$metric == main_metric, ]
-
-    if (nrow(main_row) > 0) {
-      gap <- main_row$gap[1]
-
-      cat("\n    Diagnostico (basado en", main_metric, ", gap = train - test):\n")
-
-      if (gap < 0.15) {
-        cat("    [ok] Sin indicios de overfitting (gap:", round(gap, 4), ")\n")
-      } else if (gap <= 0.30) {
-        cat("    [~] Posible overfitting leve (gap:", round(gap, 4), ")\n")
-        cat("    Considere simplificar el modelo o aumentar los datos\n")
-      } else {
-        cat("    [!] ADVERTENCIA: Overfitting detectado (gap:", round(gap, 4), ")\n")
-        cat("    El modelo memoriza los datos de entrenamiento\n")
-        .print_overfitting_suggestions()
+  # ---- Tier 1: CV vs Test ----
+  cv_auc <- NA_real_
+  if (!is.null(modeling_result) && !is.null(modeling_result$comparison)) {
+    cv_summary <- modeling_result$comparison$summary
+    if (!is.null(cv_summary) && !is.null(best_model) && main_metric %in% names(cv_summary)) {
+      best_row <- cv_summary[cv_summary$model == best_model, ]
+      if (nrow(best_row) > 0) {
+        cv_auc <- best_row[[main_metric]][1]
       }
     }
+  }
+  cv_gap <- cv_auc - test_main
+
+  # ---- Tier 2: OOB vs Test (solo RF) ----
+  oob_auc <- NA_real_
+  if (is_rf && task == "classification") {
+    tryCatch({
+      # Extraer el motor ranger del workflow fitted
+      fit_engine <- final_fit$fit$fit$fit
+      if (inherits(fit_engine, "ranger") && !is.null(fit_engine$predictions)) {
+        # fit_engine$predictions es una matriz n x n_classes con probabilidades OOB
+        oob_probs <- fit_engine$predictions
+        truth_vec <- train_data[[target]]
+        event_info <- .detect_event_level(truth_vec)
+
+        if (event_info$type == "binary") {
+          # Obtener columna de la clase positiva
+          pos_class <- event_info$positive_class
+          if (pos_class %in% colnames(oob_probs)) {
+            oob_prob_pos <- oob_probs[, pos_class]
+          } else {
+            # Intentar con el indice segun event_level
+            col_idx <- if (event_info$event_level == "first") 1 else 2
+            oob_prob_pos <- oob_probs[, col_idx]
+          }
+
+          # Calcular AUC OOB con yardstick
+          oob_df <- data.frame(
+            truth = truth_vec,
+            .pred_pos = oob_prob_pos
+          )
+          names(oob_df)[2] <- paste0(".pred_", pos_class)
+
+          oob_auc <- yardstick::roc_auc(
+            oob_df,
+            truth = truth_vec,
+            !!rlang::sym(paste0(".pred_", pos_class)),
+            event_level = event_info$event_level
+          )$.estimate
+        } else {
+          # Multiclass OOB: usar macro-average Hand-Till
+          prob_cols <- paste0(".pred_", event_info$levels)
+          oob_df <- data.frame(truth = truth_vec)
+          for (k in seq_along(event_info$levels)) {
+            col_name <- prob_cols[k]
+            lev <- event_info$levels[k]
+            if (lev %in% colnames(oob_probs)) {
+              oob_df[[col_name]] <- oob_probs[, lev]
+            } else {
+              oob_df[[col_name]] <- oob_probs[, k]
+            }
+          }
+          prob_cols_syms <- rlang::syms(prob_cols)
+          oob_auc <- yardstick::roc_auc(
+            oob_df,
+            truth = truth_vec,
+            !!!prob_cols_syms
+          )$.estimate
+        }
+      }
+    }, error = function(e) {
+      # Si falla la extraccion OOB, simplemente no mostramos Tier 2
+      oob_auc <<- NA_real_
+    })
+  }
+  oob_gap <- oob_auc - test_main
+
+  # ---- Tier 3: Train vs Test (solo no-RF) ----
+  train_metrics <- NULL
+  train_comparison <- NULL
+  if (!is_rf) {
+    train_preds <- eval_predictions(final_fit, train_data, target, task, verbose = FALSE)
+    train_metrics <- eval_metrics(train_preds, target, task, verbose = FALSE)
+
+    lower_is_better <- c("rmse", "mae")
+    train_comparison <- merge(
+      train_metrics[, c(".metric", ".estimate")],
+      test_metrics[, c(".metric", ".estimate")],
+      by = ".metric",
+      suffixes = c("_train", "_test")
+    )
+    names(train_comparison) <- c("metric", "train", "test")
+    train_comparison$gap <- ifelse(
+      train_comparison$metric %in% lower_is_better,
+      train_comparison$test - train_comparison$train,
+      train_comparison$train - train_comparison$test
+    )
+  }
+
+  # ---- Verbose output ----
+  if (verbose) {
+    cat("    Se comparan distintas estimaciones del rendimiento\n")
+    cat("    para detectar si el modelo memorizo los datos.\n\n")
+
+    # -- Tier 1: CV vs Test --
+    if (!is.na(cv_auc) && !is.na(test_main)) {
+      cat("    Comparacion CV vs Test (todos los modelos):\n")
+      cat("      metric       cv      test      gap\n")
+      cat(sprintf("      %-10s %6.3f    %6.3f   %+6.3f\n",
+                  main_metric, cv_auc, test_main, cv_gap))
+      cat("\n")
+
+      abs_cv_gap <- abs(cv_gap)
+      if (abs_cv_gap < 0.03) {
+        cat("    [ok] Excelente generalizacion (gap CV-test:", sprintf("%+.3f", cv_gap), ")\n")
+      } else if (abs_cv_gap < 0.05) {
+        cat("    [ok] Buena generalizacion (gap CV-test:", sprintf("%+.3f", cv_gap), ")\n")
+      } else if (abs_cv_gap < 0.10) {
+        cat("    [~] Diferencia moderada entre CV y test (gap:", sprintf("%+.3f", cv_gap), ")\n")
+      } else {
+        cat("    [!] Diferencia sustancial -- posible data leakage o shift (gap:", sprintf("%+.3f", cv_gap), ")\n")
+      }
+      cat("\n")
+    }
+
+    # -- Tier 2: Nota para RF --
+    if (is_rf) {
+      cat("    Nota para Random Forest:\n")
+      cat("    El AUC en train (~1.0) es artificialmente alto\n")
+      cat("    debido al error de resubstitucion. Esto es normal\n")
+      cat("    y NO indica sobreajuste. El diagnostico correcto\n")
+      cat("    es CV vs Test (mostrado arriba).\n")
+      cat("\n    Referencia: Breiman, L. (2001). Random forests.\n")
+      cat("    Machine Learning, 45(1), 5-32.\n")
+    }
+
+    # -- Tier 3: Train vs Test (solo no-RF) --
+    if (!is_rf && !is.null(train_comparison)) {
+      cat("    Comparacion Train vs Test:\n\n")
+      comp_display <- train_comparison
+      comp_display$train <- round(comp_display$train, 4)
+      comp_display$test <- round(comp_display$test, 4)
+      comp_display$gap <- round(comp_display$gap, 4)
+      print(as.data.frame(comp_display), row.names = FALSE)
+
+      train_main_row <- train_comparison[train_comparison$metric == main_metric, ]
+      if (nrow(train_main_row) > 0) {
+        train_gap <- train_main_row$gap[1]
+        cat("\n")
+        if (abs(train_gap) < 0.05) {
+          cat("    [ok] Sin indicios de overfitting (gap:", round(train_gap, 4), ")\n")
+        } else if (abs(train_gap) < 0.10) {
+          cat("    [~] Overfitting leve (gap:", round(train_gap, 4), ")\n")
+          cat("    Considere simplificar el modelo o aumentar los datos\n")
+        } else {
+          cat("    [!] Overfitting sustancial (gap:", round(train_gap, 4), ")\n")
+          .print_overfitting_suggestions()
+        }
+      }
+    }
+
     cat("\n")
   }
 
   list(
     train_metrics = train_metrics,
-    comparison = comparison
+    comparison = train_comparison,
+    cv_auc = cv_auc,
+    test_auc = test_main,
+    cv_gap = cv_gap,
+    oob_auc = if (is_rf) oob_auc else NULL,
+    oob_gap = if (is_rf) oob_gap else NULL,
+    is_rf = is_rf
   )
 }
 

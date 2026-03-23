@@ -57,12 +57,41 @@
 #' @param check_leakage Verificar posible data leakage (default: TRUE).
 #' @param nested_cv Usar nested CV para estimacion menos sesgada (default: FALSE).
 #' @param analyze_interactions Analizar interacciones y efectos no lineales (default: TRUE).
+#' @param protected_var Nombre de variable protegida para analisis de fairness (default: NULL).
+#'   Por ejemplo: "sex", "race", "age_group".
+#' @param run_fairness Ejecutar analisis de equidad/fairness (default: FALSE).
+#'   Requiere \code{protected_var}. Calcula Demographic Parity, Equalized Odds,
+#'   Predictive Parity, Disparate Impact Ratio (regla 4/5).
+#' @param fairness_threshold Umbral para regla 4/5 de Disparate Impact (default: 0.8).
+#' @param run_dca Ejecutar Decision Curve Analysis de utilidad clinica (default: FALSE).
+#'   Solo para clasificacion. Calcula Net Benefit vs tratar a todos/nadie.
+#' @param dca_thresholds Vector de umbrales de probabilidad para DCA
+#'   (default: seq(0.01, 0.99, 0.01)).
 #' @param n_cores Numero de cores para procesamiento paralelo. NULL (default)
 #'   usa todos los cores disponibles menos 1. Usar 1 para procesamiento secuencial.
 #' @param seed Semilla para reproducibilidad (default: 2024).
 #' @param verbose Mostrar progreso en consola (default: TRUE).
 #'
-#' @return Objeto de clase supervisedml con resultados completos del analisis ML.
+#' @return Objeto de clase \code{supervisedml} (lista) con componentes:
+#' \describe{
+#'   \item{task}{Tipo de tarea: "classification" o "regression"}
+#'   \item{target}{Nombre de la variable objetivo}
+#'   \item{best_model}{Nombre del mejor modelo seleccionado}
+#'   \item{best_params}{Hiperparametros tuneados del mejor modelo}
+#'   \item{final_fit}{Modelo final entrenado (workflow de tidymodels)}
+#'   \item{test_metrics}{Metricas de evaluacion en conjunto de test}
+#'   \item{predictions}{Predicciones en el conjunto de test}
+#'   \item{cv_summary}{Resumen de validacion cruzada de todos los modelos}
+#'   \item{importance}{Importancia de variables}
+#'   \item{interpretation}{Resultados SHAP (si run_shap = TRUE)}
+#'   \item{threshold_optimization}{Optimizacion de threshold (clasificacion)}
+#'   \item{fairness_analysis}{Resultados de fairness (si run_fairness = TRUE)}
+#'   \item{dca}{Decision Curve Analysis (si run_dca = TRUE)}
+#'   \item{figures}{Lista de graficos ggplot2}
+#'   \item{figures_catalog}{Catalogo de figuras con metadatos para reportes}
+#'   \item{verbose_text}{Texto completo del verbose capturado}
+#'   \item{metadata}{Informacion del analisis (n, modelos, tiempo, etc.)}
+#' }
 #'
 #' @examples
 #' \dontrun{
@@ -79,6 +108,24 @@
 #'
 #' # Hacer predicciones
 #' predict(resultado, nuevos_datos)
+#'
+#' # =====================================================
+#' # FAIRNESS Y UTILIDAD CLINICA (DCA)
+#' # =====================================================
+#'
+#' # Evaluar equidad del modelo por sexo
+#' resultado <- supervised_ml(
+#'   data = mis_datos,
+#'   target = "mi_variable",
+#'   protected_var = "sex",
+#'   run_fairness = TRUE,
+#'   run_dca = TRUE
+#' )
+#'
+#' # Ver resultados de fairness
+#' resultado$fairness_analysis
+#' plot(resultado, type = "fairness")
+#' plot(resultado, type = "dca")
 #'
 #' # =====================================================
 #' # EXPORTACION DEL VERBOSE PARA GENERAR REPORTES
@@ -165,6 +212,11 @@ supervised_ml <- function(data,
                     check_leakage = TRUE,
                     nested_cv = FALSE,
                     analyze_interactions = TRUE,
+                    protected_var = NULL,
+                    run_fairness = FALSE,
+                    fairness_threshold = 0.8,
+                    run_dca = FALSE,
+                    dca_thresholds = seq(0.01, 0.99, by = 0.01),
                     n_cores = NULL,
                     seed = 2024,
                     verbose = TRUE) {
@@ -200,7 +252,11 @@ supervised_ml <- function(data,
         optimize_threshold = optimize_threshold, threshold_method = threshold_method,
         calibrate_probs = calibrate_probs, calibration_method = calibration_method,
         check_leakage = check_leakage, nested_cv = nested_cv,
-        analyze_interactions = analyze_interactions, n_cores = n_cores,
+        analyze_interactions = analyze_interactions,
+        protected_var = protected_var, run_fairness = run_fairness,
+        fairness_threshold = fairness_threshold,
+        run_dca = run_dca, dca_thresholds = dca_thresholds,
+        n_cores = n_cores,
         seed = seed, verbose = TRUE
       )
     }, finally = {
@@ -239,7 +295,11 @@ supervised_ml <- function(data,
       optimize_threshold = optimize_threshold, threshold_method = threshold_method,
       calibrate_probs = calibrate_probs, calibration_method = calibration_method,
       check_leakage = check_leakage, nested_cv = nested_cv,
-      analyze_interactions = analyze_interactions, n_cores = n_cores,
+      analyze_interactions = analyze_interactions,
+      protected_var = protected_var, run_fairness = run_fairness,
+      fairness_threshold = fairness_threshold,
+      run_dca = run_dca, dca_thresholds = dca_thresholds,
+      n_cores = n_cores,
       seed = seed, verbose = FALSE
     )
   }
@@ -288,6 +348,11 @@ supervised_ml <- function(data,
                               check_leakage = TRUE,
                               nested_cv = FALSE,
                               analyze_interactions = TRUE,
+                              protected_var = NULL,
+                              run_fairness = FALSE,
+                              fairness_threshold = 0.8,
+                              run_dca = FALSE,
+                              dca_thresholds = seq(0.01, 0.99, by = 0.01),
                               n_cores = NULL,
                               seed = 2024,
                               verbose = TRUE) {
@@ -457,7 +522,10 @@ supervised_ml <- function(data,
     tuning_result = tuning_result,
     train_data = preprocess_result$train_data,
     test_data = preprocess_result$test_data,
-    target = target, task = task, verbose = verbose
+    target = target, task = task,
+    modeling_result = modeling_result,
+    best_model = modeling_result$best_model,
+    verbose = verbose
   )
   resultado$evaluation <- evaluation_result
 
@@ -619,6 +687,44 @@ supervised_ml <- function(data,
     if (verbose) .print_reference("nested_cv")
   }
 
+  # 7.7 Analisis de Fairness (solo clasificacion)
+  if (task == "classification" && run_fairness && !is.null(protected_var)) {
+    if (verbose) .print_subsection(7, 7, "Analisis de Equidad (Fairness)")
+
+    if (!protected_var %in% names(preprocess_result$test_data)) {
+      if (verbose) cat("    Variable protegida '", protected_var, "' no encontrada en test_data\n", sep = "")
+    } else {
+      preds_fair <- evaluation_result$predictions
+      if (!protected_var %in% names(preds_fair)) {
+        preds_fair[[protected_var]] <- preprocess_result$test_data[[protected_var]]
+      }
+
+      fairness_result <- analyze_fairness(
+        predictions = preds_fair,
+        target = target,
+        protected_var = protected_var,
+        fairness_threshold = fairness_threshold,
+        verbose = verbose
+      )
+      resultado$fairness_analysis <- fairness_result
+      if (verbose) .print_reference("fairness")
+    }
+  }
+
+  # 7.8 Decision Curve Analysis (solo clasificacion)
+  if (task == "classification" && run_dca) {
+    if (verbose) .print_subsection(7, 8, "Utilidad Clinica (Decision Curve Analysis)")
+
+    dca_result <- analyze_dca(
+      predictions = evaluation_result$predictions,
+      target = target,
+      thresholds = dca_thresholds,
+      verbose = verbose
+    )
+    resultado$dca <- dca_result
+    if (verbose) .print_reference("dca")
+  }
+
   # 8. GENERACION DE GRAFICOS
   if (verbose) .print_section(8, "Generacion de Graficos")
 
@@ -717,6 +823,9 @@ supervised_ml <- function(data,
 }
 
 
+#' @title Print method for supervisedml
+#' @param x Objeto de clase supervisedml.
+#' @param ... Argumentos adicionales (no usados).
 #' @export
 print.supervisedml <- function(x, ...) {
   cat("\n")
@@ -763,6 +872,23 @@ print.supervisedml <- function(x, ...) {
     }
   }
 
+  if (!is.null(x$fairness_analysis)) {
+    cat("\nFAIRNESS (variable protegida: ", x$fairness_analysis$protected_var, "):\n", sep = "")
+    cat("  Disparate Impact Ratio: ", round(x$fairness_analysis$disparate_impact_ratio, 3), "\n", sep = "")
+    cat("  Regla 4/5: ", ifelse(x$fairness_analysis$passes_four_fifths, "CUMPLE", "NO CUMPLE"), "\n", sep = "")
+    cat("  Dem. Parity Diff: ", round(x$fairness_analysis$demographic_parity_diff, 3), "\n", sep = "")
+    cat("  Eq. Odds (TPR Diff): ", round(x$fairness_analysis$equalized_odds_tpr_diff, 3), "\n", sep = "")
+  }
+
+  if (!is.null(x$dca)) {
+    cat("\nUTILIDAD CLINICA (DCA):\n")
+    if (!is.na(x$dca$useful_range[1])) {
+      cat("  Rango util: [", round(x$dca$useful_range[1], 2), ", ",
+          round(x$dca$useful_range[2], 2), "]\n", sep = "")
+    }
+    cat("  Net Benefit maximo: ", round(x$dca$max_net_benefit, 4), "\n", sep = "")
+  }
+
   if (!is.null(x$plots) && length(x$plots) > 0) {
     cat("\nGRAFICOS GENERADOS:", length(x$plots), "\n")
     cat("  Disponibles:", paste(names(x$plots), collapse = ", "), "\n")
@@ -780,6 +906,10 @@ print.supervisedml <- function(x, ...) {
 
 
 #' @title Predecir con modelo supervised_ml
+#' @param object Objeto de clase supervisedml.
+#' @param new_data Data frame con nuevos datos para predecir.
+#' @param type Tipo de prediccion: "class" (default) o "prob" (probabilidades, solo clasificacion).
+#' @param ... Argumentos adicionales (no usados).
 #' @export
 predict.supervisedml <- function(object, new_data, type = "class", ...) {
   if (type == "prob" && object$task == "classification") {
@@ -791,6 +921,8 @@ predict.supervisedml <- function(object, new_data, type = "class", ...) {
 
 
 #' @title Resumen del modelo supervised_ml
+#' @param object Objeto de clase supervisedml.
+#' @param ... Argumentos adicionales (no usados).
 #' @export
 summary.supervisedml <- function(object, ...) {
   cat("\n=== Resumen supervised_ml ===\n\n")
