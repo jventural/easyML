@@ -215,6 +215,7 @@ supervised_ml <- function(data,
                     protected_var = NULL,
                     run_fairness = FALSE,
                     fairness_threshold = 0.8,
+                    fairness_correction = c("none", "postprocesamiento", "preprocesamiento"),
                     run_dca = FALSE,
                     dca_thresholds = seq(0.01, 0.99, by = 0.01),
                     n_cores = NULL,
@@ -255,6 +256,7 @@ supervised_ml <- function(data,
         analyze_interactions = analyze_interactions,
         protected_var = protected_var, run_fairness = run_fairness,
         fairness_threshold = fairness_threshold,
+        fairness_correction = fairness_correction,
         run_dca = run_dca, dca_thresholds = dca_thresholds,
         n_cores = n_cores,
         seed = seed, verbose = TRUE
@@ -298,6 +300,7 @@ supervised_ml <- function(data,
       analyze_interactions = analyze_interactions,
       protected_var = protected_var, run_fairness = run_fairness,
       fairness_threshold = fairness_threshold,
+      fairness_correction = fairness_correction,
       run_dca = run_dca, dca_thresholds = dca_thresholds,
       n_cores = n_cores,
       seed = seed, verbose = FALSE
@@ -351,6 +354,7 @@ supervised_ml <- function(data,
                               protected_var = NULL,
                               run_fairness = FALSE,
                               fairness_threshold = 0.8,
+                              fairness_correction = c("none", "postprocesamiento", "preprocesamiento"),
                               run_dca = FALSE,
                               dca_thresholds = seq(0.01, 0.99, by = 0.01),
                               n_cores = NULL,
@@ -386,6 +390,18 @@ supervised_ml <- function(data,
   set.seed(seed)
   task <- match.arg(task)
   tune_method <- match.arg(tune_method)
+  fairness_correction <- match.arg(fairness_correction)
+  if (fairness_correction != "none") {
+    if (is.null(protected_var)) stop("fairness_correction requiere protected_var")
+    if (task == "regression") {
+      warning("fairness_correction solo aplica a clasificacion. Se ignora.")
+      fairness_correction <- "none"
+    }
+    if (!run_fairness) {
+      run_fairness <- TRUE
+      if (verbose) cat("    NOTA: run_fairness activado por fairness_correction\n")
+    }
+  }
   start_time <- Sys.time()
 
   .validate_inputs(data, target, models)
@@ -483,6 +499,25 @@ supervised_ml <- function(data,
     seed = seed, verbose = verbose
   )
   resultado$preprocessing <- preprocess_result
+
+  # Fairness resample (pre-processing)
+  if (fairness_correction == "preprocesamiento" && !is.null(protected_var)) {
+    if (protected_var %in% names(preprocess_result$train_data)) {
+      if (verbose) .print_subsection(2, 4, "Resampleo por Equidad")
+      preprocess_result$train_data <- resample_fairness(
+        train_data = preprocess_result$train_data,
+        target = target,
+        protected_var = protected_var,
+        seed = seed,
+        verbose = verbose
+      )
+      # Disable SMOTE if active to avoid double balancing
+      if (balance_classes && verbose) {
+        cat("    NOTA: fairness_correction='preprocesamiento' incluye balanceo.\n")
+        cat("    Se omite SMOTE adicional.\n")
+      }
+    }
+  }
 
   # 5. MODELADO
   modeling_result <- train_models(
@@ -723,6 +758,20 @@ supervised_ml <- function(data,
       )
       resultado$fairness_analysis <- fairness_result
       if (verbose) .print_reference("fairness")
+
+      # Fairness threshold correction (post-processing)
+      if (fairness_correction == "postprocesamiento") {
+        adv_sub <- adv_sub + 1
+        if (verbose) .print_subsection(7, adv_sub, "Correccion de Fairness (Post-procesamiento)")
+        correction_result <- correct_fairness_threshold(
+          predictions = preds_fair,
+          target = target,
+          protected_var = protected_var,
+          verbose = verbose
+        )
+        resultado$fairness_correction <- correction_result
+        resultado$group_thresholds <- correction_result$group_thresholds
+      }
     }
   }
 
@@ -930,6 +979,36 @@ print.supervisedml <- function(x, ...) {
 predict.supervisedml <- function(object, new_data, type = "class", ...) {
   if (type == "prob" && object$task == "classification") {
     stats::predict(object$final_fit, new_data = new_data, type = "prob")
+  } else if (!is.null(object$group_thresholds) && object$task == "classification" && type != "prob") {
+    # Fairness-corrected prediction using group-specific thresholds
+    pvar <- object$fairness_analysis$protected_var
+    if (!is.null(pvar) && pvar %in% names(new_data)) {
+      probs <- stats::predict(object$final_fit, new_data = new_data, type = "prob")
+      event_info <- .detect_event_level(object$predictions[[object$target]])
+      prob_col <- event_info$prob_col
+      gt <- object$group_thresholds
+
+      pred_class <- character(nrow(new_data))
+      for (i in seq_len(nrow(gt))) {
+        idx <- new_data[[pvar]] == gt$group[i]
+        if (any(idx)) {
+          pred_class[idx] <- ifelse(
+            probs[[prob_col]][idx] >= gt$threshold[i],
+            event_info$positive_class, event_info$negative_class
+          )
+        }
+      }
+      missing <- pred_class == ""
+      if (any(missing)) {
+        pred_class[missing] <- ifelse(
+          probs[[prob_col]][missing] >= 0.5,
+          event_info$positive_class, event_info$negative_class
+        )
+      }
+      tibble::tibble(.pred_class = factor(pred_class, levels = event_info$levels))
+    } else {
+      stats::predict(object$final_fit, new_data = new_data)
+    }
   } else {
     stats::predict(object$final_fit, new_data = new_data)
   }
