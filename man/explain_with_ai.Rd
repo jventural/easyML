@@ -14,7 +14,7 @@ explain_with_ai(
 )
 }
 \arguments{
-\item{result}{An object of class \code{easyml} returned by \code{easy_ml()}.}
+\item{result}{An object of class \code{supervisedml} returned by \code{supervised_ml()}.}
 
 \item{api_key}{API key for the provider. If \code{NULL} (default), uses the
 built-in Groq key (shared, limited to ~1000 requests/day across all users).
@@ -40,7 +40,7 @@ built-in diagnostic engine). The interpretation is also printed to the
 console.
 }
 \description{
-Sends the results from \code{easy_ml()} to an LLM and returns a clear
+Sends the results from \code{supervised_ml()} to an LLM and returns a clear
 interpretation of the analysis. Uses Groq (Llama 3.3 70B, free) by default
 with a built-in API key, or OpenAI models if you provide your own key.
 Runs a diagnostic engine first to detect common issues (data leakage,
@@ -48,7 +48,7 @@ overfitting, class imbalance, etc.) and feeds structured findings to the AI.
 }
 \examples{
 \dontrun{
-result <- easy_ml(iris_binary, "Species", "classification")
+result <- supervised_ml(iris_binary, "Species", "classification")
 
 # Default: free Groq (no key needed)
 explain_with_ai(result)

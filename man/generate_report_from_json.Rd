@@ -6,7 +6,7 @@
 \usage{
 generate_report_from_json(
   json_path,
-  output_path = "easyml_report.docx",
+  output_path = "supervisedml_report.docx",
   format = c("docx", "html", "pdf"),
   template = c("scientific", "brief", "full")
 )

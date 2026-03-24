@@ -52,9 +52,9 @@ cluster_profile(resultado, original_data = iris[, 1:4])
 plot(resultado)
 
 # --- Mostrar una figura especifica ---
-# plot(resultado, which = 1)  # Scree Plot
-# plot(resultado, which = 2)  # Biplot PCA
-# plot(resultado, which = "all")  # Todas
+plot(resultado, which = 1)  # Scree Plot
+plot(resultado, which = 2)  # Biplot PCA
+plot(resultado, which = "all")  # Todas
 
 # --- Guardar figuras en disco ---
 # save_unsupervised_plots(resultado, output_dir = "figures_iris")

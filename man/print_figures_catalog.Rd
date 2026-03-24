@@ -7,7 +7,7 @@
 print_figures_catalog(x)
 }
 \arguments{
-\item{x}{Objeto easyml}
+\item{x}{Objeto supervisedml}
 }
 \value{
 NULL (invisible)

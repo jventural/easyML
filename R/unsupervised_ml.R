@@ -47,7 +47,20 @@
 #' @param seed Semilla para reproducibilidad (default: 2024).
 #' @param verbose Mostrar progreso en consola (default: TRUE).
 #'
-#' @return Objeto de clase \code{unsupervisedml} con resultados completos.
+#' @return Objeto de clase \code{unsupervisedml} (lista) con componentes:
+#' \describe{
+#'   \item{eda}{Resultados del analisis exploratorio}
+#'   \item{preprocessed}{Datos preprocesados y parametros de normalizacion}
+#'   \item{clustering}{Resultados de clustering: optimal_k, results por algoritmo}
+#'   \item{evaluation}{Comparacion de algoritmos: silhouette, Calinski-Harabasz, Davies-Bouldin}
+#'   \item{reduction}{Reduccion de dimensionalidad: PCA, t-SNE, UMAP}
+#'   \item{anomalies}{Deteccion de anomalias: isolation forest, LOF, Mahalanobis, consenso}
+#'   \item{figures}{Lista de graficos ggplot2}
+#'   \item{figures_catalog}{Catalogo de figuras con metadatos para reportes}
+#'   \item{verbose_text}{Texto completo del verbose capturado}
+#'   \item{data_original}{Datos originales}
+#'   \item{elapsed_time}{Tiempo de ejecucion en segundos}
+#' }
 #'
 #' @examples
 #' \dontrun{
@@ -369,6 +382,9 @@ unsupervised_ml <- function(data,
 # METODOS S3
 # =============================================================================
 
+#' @title Print method for unsupervisedml
+#' @param x Objeto de clase unsupervisedml.
+#' @param ... Argumentos adicionales (no usados).
 #' @export
 print.unsupervisedml <- function(x, ...) {
   cat("\n")
@@ -426,6 +442,9 @@ print.unsupervisedml <- function(x, ...) {
 }
 
 
+#' @title Summary method for unsupervisedml
+#' @param object Objeto de clase unsupervisedml.
+#' @param ... Argumentos adicionales (no usados).
 #' @export
 summary.unsupervisedml <- function(object, ...) {
   x <- object
@@ -482,6 +501,10 @@ summary.unsupervisedml <- function(object, ...) {
 }
 
 
+#' @title Plot method for unsupervisedml
+#' @param x Objeto de clase unsupervisedml.
+#' @param which Indice o nombre de la figura a mostrar. NULL muestra el catalogo.
+#' @param ... Argumentos adicionales (no usados).
 #' @export
 plot.unsupervisedml <- function(x, which = NULL, ...) {
   if (is.null(x$figures) || length(x$figures) == 0) {

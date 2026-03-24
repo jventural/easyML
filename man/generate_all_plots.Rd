@@ -7,7 +7,7 @@
 generate_all_plots(x, verbose = TRUE)
 }
 \arguments{
-\item{x}{Objeto easyml}
+\item{x}{Objeto supervisedml}
 
 \item{verbose}{Mostrar progreso}
 }

@@ -1,7 +1,7 @@
 Package: easyML
 Type: Package
-Title: Easy Machine Learning Pipeline for Classification, Regression, and Unsupervised Learning
-Version: 2.1.0
+Title: Easy Machine Learning Pipeline for Supervised, Unsupervised, Causal, and Reinforcement Learning
+Version: 2.4.0
 Date: 2026-03-22
 Authors@R: c(
     person("Jose", "Ventura-Leon",
@@ -75,6 +75,18 @@ Suggests:
     isotree,
     VIM,
     ggdendro,
-    NbClust
+    NbClust,
+    MatchIt,
+    cobalt,
+    grf,
+    DoubleML,
+    mlr3,
+    mlr3learners,
+    tmle,
+    SuperLearner,
+    reticulate,
+    MDPtoolbox,
+    contextual,
+    ReinforcementLearning
 VignetteBuilder: knitr
 Config/testthat/edition: 3

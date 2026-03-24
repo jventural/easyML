@@ -127,11 +127,35 @@ S3method(summary, unsupervisedml)
 S3method(plot, unsupervisedml)
 S3method(predict, unsupervisedml)
 
+# FUNCIONES FAIRNESS Y UTILIDAD CLINICA
+export(analyze_fairness)
+export(correct_fairness_threshold)
+export(resample_fairness)
+export(analyze_dca)
+
+# FUNCION CAUSAL
+export(causal_ml)
+
+# METODOS S3 CAUSAL
+S3method(print, causalml)
+S3method(predict, causalml)
+S3method(summary, causalml)
+S3method(plot, causalml)
+
+# FUNCION REINFORCEMENT LEARNING
+export(reinforcement_ml)
+
+# METODOS S3 REINFORCEMENT LEARNING
+S3method(print, reinforcementml)
+S3method(predict, reinforcementml)
+S3method(summary, reinforcementml)
+S3method(plot, reinforcementml)
+
 # IMPORTS
 importFrom(stats, sd, uniroot, plogis, rbinom, rnorm, nls, coef, predict,
            as.formula, model.frame, model.response, model.matrix, reorder,
            shapiro.test, cor, lm, quantile, median, aggregate, glm, binomial,
            var, dist, hclust, cutree, kmeans, prcomp, mahalanobis, cov,
-           qchisq, as.dendrogram)
+           qchisq, as.dendrogram, weighted.mean, qnorm, pnorm, na.omit)
 importFrom(utils, head)
 importFrom(pROC, roc, auc, multiclass.roc)

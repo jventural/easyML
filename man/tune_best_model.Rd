@@ -9,6 +9,7 @@ tune_best_model(
   method = "random",
   grid_size = 20,
   iter = 30,
+  select_metric = NULL,
   seed = 2024,
   verbose = TRUE
 )

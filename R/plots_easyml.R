@@ -208,6 +208,34 @@ generate_all_plots <- function(x, verbose = TRUE) {
     if (verbose) cat("      - Figura", fig_num, ": SHAP beeswarm\n")
   }
 
+  # Fairness Analysis
+  if (!is.null(x$fairness_analysis)) {
+    fig_num <- fig_num + 1
+    plots$fairness <- .plot_fairness(x$fairness_analysis)
+    figures_catalog$fairness <- list(
+      number = fig_num, type = "figura",
+      id = paste0("Figura_", fig_num),
+      title = "Analisis de Equidad (Fairness)",
+      description = paste0("Metricas de equidad por subgrupos de ", x$fairness_analysis$protected_var),
+      filename = paste0("Figura_", fig_num, "_Fairness.png")
+    )
+    if (verbose) cat("      - Figura", fig_num, ": Analisis de fairness\n")
+  }
+
+  # Decision Curve Analysis
+  if (!is.null(x$dca)) {
+    fig_num <- fig_num + 1
+    plots$dca <- .plot_dca(x$dca)
+    figures_catalog$dca <- list(
+      number = fig_num, type = "figura",
+      id = paste0("Figura_", fig_num),
+      title = "Decision Curve Analysis",
+      description = "Net Benefit vs threshold de probabilidad",
+      filename = paste0("Figura_", fig_num, "_DCA.png")
+    )
+    if (verbose) cat("      - Figura", fig_num, ": Decision Curve Analysis\n")
+  }
+
   if (verbose) {
     cat("      Total:", length(plots), "graficos generados\n")
   }
@@ -286,7 +314,9 @@ plot.supervisedml <- function(x, type = "panel", top_n = 15, ...) {
     threshold = "threshold_optimization",
     shap = "shap_summary",
     shap_bar = "shap_bar",
-    shap_beeswarm = "shap_summary"
+    shap_beeswarm = "shap_summary",
+    fairness = "fairness",
+    dca = "dca"
   )
 
   if (type %in% names(plot_map)) {
@@ -917,6 +947,123 @@ plot_metrics_profile <- function(x, metrics = NULL, highlight = NULL,
       ggplot2::aes(label = sprintf("%.3f", value)),
       vjust = -1.2, size = 2.8, show.legend = FALSE
     )
+  }
+
+  return(p)
+}
+
+
+# =============================================================================
+# Plot de Fairness
+# =============================================================================
+
+#' @noRd
+.plot_fairness <- function(fairness_result) {
+
+  gm <- fairness_result$group_metrics
+
+  # Preparar datos en formato largo
+  metrics_to_plot <- c("positive_rate", "tpr", "fpr", "ppv", "accuracy")
+  metric_labels <- c("Positive Rate\n(Dem. Parity)", "TPR\n(Sensitivity)",
+                      "FPR\n(False Pos.)", "PPV\n(Precision)", "Accuracy")
+
+  df_long <- do.call(rbind, lapply(seq_along(metrics_to_plot), function(i) {
+    data.frame(
+      group = gm$group,
+      metric = metric_labels[i],
+      value = gm[[metrics_to_plot[i]]],
+      stringsAsFactors = FALSE
+    )
+  }))
+
+  df_long$metric <- factor(df_long$metric, levels = metric_labels)
+
+  # Colores para grupos
+  n_groups <- length(unique(df_long$group))
+  colors <- c("#2196F3", "#FF5722", "#4CAF50", "#FF9800", "#9C27B0",
+              "#00BCD4", "#795548", "#607D8B")[seq_len(n_groups)]
+
+  p <- ggplot2::ggplot(df_long, ggplot2::aes(x = metric, y = value, fill = group)) +
+    ggplot2::geom_col(position = ggplot2::position_dodge(width = 0.7),
+                      width = 0.6, alpha = 0.85) +
+    ggplot2::geom_text(ggplot2::aes(label = sprintf("%.2f", value)),
+                       position = ggplot2::position_dodge(width = 0.7),
+                       vjust = -0.5, size = 3) +
+    ggplot2::scale_fill_manual(values = colors) +
+    ggplot2::labs(
+      title = "Fairness Analysis by Protected Group",
+      subtitle = paste("Protected variable:", fairness_result$protected_var,
+                       "| DI Ratio:", round(fairness_result$disparate_impact_ratio, 3)),
+      x = "", y = "Value", fill = "Group"
+    ) +
+    ggplot2::ylim(0, min(1.15, max(df_long$value, na.rm = TRUE) * 1.15)) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(size = 12, face = "bold"),
+      plot.subtitle = ggplot2::element_text(size = 10, color = "gray40"),
+      axis.text.x = ggplot2::element_text(size = 9),
+      legend.position = "bottom"
+    )
+
+  return(p)
+}
+
+
+# =============================================================================
+# Plot de DCA (Decision Curve Analysis)
+# =============================================================================
+
+#' @noRd
+.plot_dca <- function(dca_result) {
+
+  dca <- dca_result$dca_data
+
+  # Preparar datos para las 3 lineas
+  df_plot <- data.frame(
+    threshold = rep(dca$threshold, 3),
+    net_benefit = c(dca$nb_model, dca$nb_all, dca$nb_none),
+    strategy = rep(c("Model", "Treat All", "Treat None"), each = nrow(dca)),
+    stringsAsFactors = FALSE
+  )
+  df_plot$strategy <- factor(df_plot$strategy,
+                              levels = c("Model", "Treat All", "Treat None"))
+
+  # Limitar el eje Y para mejor visualizacion
+  y_max <- max(dca$nb_model, dca$nb_all, na.rm = TRUE) * 1.1
+  y_min <- min(-0.05, min(dca$nb_model, dca$nb_all, na.rm = TRUE) * 1.1)
+
+  p <- ggplot2::ggplot(df_plot, ggplot2::aes(x = threshold, y = net_benefit,
+                                              color = strategy, linetype = strategy)) +
+    ggplot2::geom_line(linewidth = 1) +
+    ggplot2::scale_color_manual(values = c("Model" = "#1565C0",
+                                            "Treat All" = "#757575",
+                                            "Treat None" = "#BDBDBD")) +
+    ggplot2::scale_linetype_manual(values = c("Model" = "solid",
+                                               "Treat All" = "dashed",
+                                               "Treat None" = "dotted")) +
+    ggplot2::coord_cartesian(ylim = c(y_min, y_max)) +
+    ggplot2::labs(
+      title = "Decision Curve Analysis",
+      subtitle = paste("Prevalence:", round(dca_result$prevalence * 100, 1), "%"),
+      x = "Threshold Probability",
+      y = "Net Benefit",
+      color = "Strategy",
+      linetype = "Strategy"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(size = 12, face = "bold"),
+      plot.subtitle = ggplot2::element_text(size = 10, color = "gray40"),
+      legend.position = "bottom"
+    )
+
+  # Agregar rango util si existe
+  if (!is.na(dca_result$useful_range[1])) {
+    p <- p + ggplot2::annotate("rect",
+                                xmin = dca_result$useful_range[1],
+                                xmax = dca_result$useful_range[2],
+                                ymin = y_min, ymax = y_max,
+                                alpha = 0.1, fill = "#4CAF50")
   }
 
   return(p)

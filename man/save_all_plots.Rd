@@ -7,7 +7,7 @@
 save_all_plots(x, path = ".", prefix = NULL, width = 8, height = 6, dpi = 300)
 }
 \arguments{
-\item{x}{Objeto easyml}
+\item{x}{Objeto supervisedml}
 
 \item{path}{Directorio donde guardar}
 
@@ -23,6 +23,6 @@ save_all_plots(x, path = ".", prefix = NULL, width = 8, height = 6, dpi = 300)
 Lista con catalogo de figuras guardadas (invisible)
 }
 \description{
-Guarda todos los graficos de un objeto easyml en archivos PNG con nombres
+Guarda todos los graficos de un objeto supervisedml en archivos PNG con nombres
 descriptivos (Figura_1_Importancia_Variables.png, etc.).
 }

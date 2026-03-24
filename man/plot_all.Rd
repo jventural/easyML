@@ -7,7 +7,7 @@
 plot_all(x, ...)
 }
 \arguments{
-\item{x}{Objeto easyml}
+\item{x}{Objeto supervisedml}
 
 \item{...}{Argumentos adicionales}
 }

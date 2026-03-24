@@ -4,7 +4,14 @@
 \alias{fit_models_cv}
 \title{Entrenar Modelos con CV}
 \usage{
-fit_models_cv(model_specs, recipe, cv_folds, task, verbose = TRUE)
+fit_models_cv(
+  model_specs,
+  recipe,
+  cv_folds,
+  task,
+  select_metric = NULL,
+  verbose = TRUE
+)
 }
 \description{
 Entrenar Modelos con CV

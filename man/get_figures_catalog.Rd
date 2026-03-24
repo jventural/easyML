@@ -7,11 +7,11 @@
 get_figures_catalog(x)
 }
 \arguments{
-\item{x}{Objeto easyml}
+\item{x}{Objeto supervisedml}
 }
 \value{
 Data frame con el catalogo de figuras
 }
 \description{
-Devuelve el catalogo de figuras generadas por easy_ml().
+Devuelve el catalogo de figuras generadas por supervised_ml().
 }

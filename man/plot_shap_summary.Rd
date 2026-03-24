@@ -2,10 +2,10 @@
 % Please edit documentation in R/interpretability.R
 \name{plot_shap_summary}
 \alias{plot_shap_summary}
-\title{Grafico SHAP Summary}
+\title{Grafico SHAP Summary (Beeswarm)}
 \usage{
 plot_shap_summary(interpret_result, top_n = 15)
 }
 \description{
-Grafico SHAP Summary
+Grafico SHAP Summary (Beeswarm)
 }
