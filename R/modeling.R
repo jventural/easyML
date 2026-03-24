@@ -133,6 +133,7 @@ define_models <- function(models, task, verbose = TRUE) {
     rf = "Ensemble de arboles de decision con muestreo aleatorio",
     xgboost = "Gradient boosting optimizado, entrena arboles secuencialmente",
     glm = if (task == "classification") "Modelo lineal para probabilidades (regresion logistica)" else "Modelo lineal clasico para predecir valores continuos",
+    glmnet = "Regresion con regularizacion Lasso/Ridge (penaliza coeficientes grandes)",
     svm = "Busca el hiperplano optimo para separar clases o predecir valores",
     nnet = "Modelo inspirado en neuronas, captura relaciones no lineales",
     tree = "Arbol de decision simple, facil de interpretar",
@@ -468,6 +469,7 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
     svm = "SVM (RBF)",
     nnet = "Red Neuronal",
     glm = "Regresion Logistica/Lineal",
+    glmnet = "GLMNet (Regularizado)",
     tree = "Arbol de Decision",
     nb = "Naive Bayes"
   )

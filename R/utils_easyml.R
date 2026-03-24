@@ -136,7 +136,19 @@
     residuals = "Cook, R. D., & Weisberg, S. (1982). Residuals and influence in regression. Chapman and Hall.",
 
     # Frameworks y Herramientas
-    tidy_modeling = "Kuhn, M., & Silge, J. (2022). Tidy modeling with R: A framework for modeling in the tidyverse. O'Reilly Media. https://www.tmwr.org/"
+    tidy_modeling = "Kuhn, M., & Silge, J. (2022). Tidy modeling with R: A framework for modeling in the tidyverse. O'Reilly Media. https://www.tmwr.org/",
+
+    # Fairness
+    fairness = "Barocas, S., Hardt, M., & Narayanan, A. (2019). Fairness and machine learning: Limitations and opportunities. MIT Press.",
+    disparate_impact = "Feldman, M., Friedler, S. A., Moeller, J., Scheidegger, C., & Venkatasubramanian, S. (2015). Certifying and removing disparate impact. KDD, 259-268.",
+
+    # Decision Curve Analysis
+    dca = "Vickers, A. J., & Elkin, E. B. (2006). Decision curve analysis: A novel method for evaluating prediction models. Medical Decision Making, 26(6), 565-574.",
+
+    # Causal Inference
+    ps = "Rosenbaum, P. R., & Rubin, D. B. (1983). The central role of the propensity score in observational studies for causal effects. Biometrika, 70(1), 41-55.",
+    dml = "Chernozhukov, V., Chetverikov, D., Demirer, M., Duflo, E., Hansen, C., Newey, W., & Robins, J. (2018). Double/debiased machine learning for treatment and structural parameters. The Econometrics Journal, 21(1), C1-C68.",
+    cf_causal = "Wager, S., & Athey, S. (2018). Estimation and inference of heterogeneous treatment effects using random forests. JASA, 113(523), 1228-1242."
   )
 
   if (ref_key %in% names(references)) {
@@ -157,7 +169,7 @@
     stop("Variable objetivo '", target, "' no encontrada en los datos")
   }
 
-  valid_models <- c("rf", "xgboost", "svm", "nnet", "glm", "tree", "nb")
+  valid_models <- c("rf", "xgboost", "svm", "nnet", "glm", "glmnet", "tree", "nb")
   invalid <- setdiff(models, valid_models)
   if (length(invalid) > 0) {
     stop("Modelos no validos: ", paste(invalid, collapse = ", "),
@@ -297,6 +309,18 @@
     } else {
       spec <- parsnip::linear_reg() |>
         parsnip::set_engine("lm") |>
+        parsnip::set_mode("regression")
+    }
+  }
+
+  else if (model_name == "glmnet") {
+    if (task == "classification") {
+      spec <- parsnip::logistic_reg(penalty = 0.01, mixture = 0.5) |>
+        parsnip::set_engine("glmnet") |>
+        parsnip::set_mode("classification")
+    } else {
+      spec <- parsnip::linear_reg(penalty = 0.01, mixture = 0.5) |>
+        parsnip::set_engine("glmnet") |>
         parsnip::set_mode("regression")
     }
   }
@@ -459,6 +483,23 @@
     ) |>
       parsnip::set_engine("xgboost") |>
       parsnip::set_mode(task)
+
+  } else if (model_name == "glmnet") {
+    tune_spec <- if (task == "classification") {
+      parsnip::logistic_reg(
+        penalty = tune::tune(),
+        mixture = tune::tune()
+      ) |>
+        parsnip::set_engine("glmnet") |>
+        parsnip::set_mode("classification")
+    } else {
+      parsnip::linear_reg(
+        penalty = tune::tune(),
+        mixture = tune::tune()
+      ) |>
+        parsnip::set_engine("glmnet") |>
+        parsnip::set_mode("regression")
+    }
   }
 
   wf <- workflows::workflow() |>

@@ -42,7 +42,7 @@ tune_best_model <- function(modeling_result,
   # 4.1 Identificar Mejor Modelo
   if (verbose) .print_subsection(4, 1, "Identificar Mejor Modelo")
 
-  if (!best_model %in% c("rf", "xgboost", "svm", "nnet", "tree")) {
+  if (!best_model %in% c("rf", "xgboost", "svm", "nnet", "glmnet", "tree")) {
     if (verbose) {
       cat("    Mejor modelo:", .get_model_label(best_model), "\n")
       cat("    [!] Este modelo no tiene hiperparametros tuneables\n")
@@ -192,6 +192,8 @@ tune_best_model <- function(modeling_result,
     return(c("cost", "rbf_sigma"))
   } else if (model_name == "nnet") {
     return(c("hidden_units", "penalty"))
+  } else if (model_name == "glmnet") {
+    return(c("penalty", "mixture"))
   } else if (model_name == "tree") {
     return(c("cost_complexity", "tree_depth", "min_n"))
   }
@@ -232,6 +234,13 @@ tune_best_model <- function(modeling_result,
         "Numero de neuronas en la capa oculta. Mas neuronas = mayor capacidad de capturar patrones complejos.",
       "penalty (regularizacion / weight decay)" =
         "Penalizacion sobre los pesos de la red. Valores altos = modelo mas simple, reduce sobreajuste."
+    ))
+  } else if (model_name == "glmnet") {
+    return(list(
+      "penalty (penalizacion lambda)" =
+        "Fuerza de la regularizacion. Valores altos = coeficientes mas pequenos, modelo mas simple.",
+      "mixture (mezcla Lasso/Ridge)" =
+        "0 = Ridge (penaliza magnitud), 1 = Lasso (elimina variables), 0.5 = Elastic Net (ambos)."
     ))
   } else if (model_name == "tree") {
     return(list(
@@ -349,6 +358,18 @@ tune_best_model <- function(modeling_result,
     }
   }
 
+  # mixture: mezcla Lasso/Ridge (glmnet)
+  if ("mixture" %in% names(params)) {
+    mix_val <- params$mixture
+    if (mix_val <= 0.1) {
+      interpretations$mixture <- paste0("Casi puro Ridge (", round(mix_val, 2), ") = penaliza magnitud de coeficientes, mantiene todas las variables")
+    } else if (mix_val >= 0.9) {
+      interpretations$mixture <- paste0("Casi puro Lasso (", round(mix_val, 2), ") = selecciona variables, elimina las menos importantes")
+    } else {
+      interpretations$mixture <- paste0("Elastic Net (", round(mix_val, 2), ") = combina Ridge y Lasso, buen balance")
+    }
+  }
+
   # cost_complexity: parametro de poda (tree)
   if ("cost_complexity" %in% names(params)) {
     cp_val <- params$cost_complexity
@@ -432,6 +453,23 @@ tune_best_model <- function(modeling_result,
     ) |>
       parsnip::set_engine("nnet") |>
       parsnip::set_mode(task)
+
+  } else if (model_name == "glmnet") {
+    tune_spec <- if (task == "classification") {
+      parsnip::logistic_reg(
+        penalty = tune::tune(),
+        mixture = tune::tune()
+      ) |>
+        parsnip::set_engine("glmnet") |>
+        parsnip::set_mode("classification")
+    } else {
+      parsnip::linear_reg(
+        penalty = tune::tune(),
+        mixture = tune::tune()
+      ) |>
+        parsnip::set_engine("glmnet") |>
+        parsnip::set_mode("regression")
+    }
 
   } else if (model_name == "tree") {
     tune_spec <- parsnip::decision_tree(
