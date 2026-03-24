@@ -125,16 +125,30 @@ calculate_shap <- function(final_fit,
   # se aplique automaticamente. Asi fastshap puede permutar los datos
   # crudos (con factores) y el workflow los transforma internamente.
 
-  # Detectar si es multiclass
+  # Detectar tipo de tarea
   target_vec <- train_data[[target]]
-  n_classes <- length(levels(factor(target_vec)))
-  is_multiclass <- n_classes >= 3
+  is_regression <- is.numeric(target_vec)
+  n_classes <- if (is_regression) 0 else length(levels(factor(target_vec)))
+  is_multiclass <- !is_regression && n_classes >= 3
 
   X_shap <- as.data.frame(test_sample[, predictors])
 
   # Calcular SHAP
   shap_values <- tryCatch({
-    if (is_multiclass) {
+    if (is_regression) {
+      # Regresion: prediccion numerica directa
+      if (verbose) cat("    Modo: regresion (prediccion numerica)\n")
+      fastshap::explain(
+        object = final_fit,
+        X = X_shap,
+        pred_wrapper = function(model, newdata) {
+          newdata <- as.data.frame(newdata)
+          preds <- stats::predict(model, new_data = newdata)
+          as.numeric(preds$.pred)
+        },
+        nsim = 50
+      )
+    } else if (is_multiclass) {
       # Multiclass: calcular SHAP por clase y promediar |SHAP|
       if (verbose) cat("    Calculando SHAP por clase (", n_classes, " clases)...\n", sep = "")
       all_shap <- lapply(seq_len(n_classes), function(k) {
@@ -150,7 +164,7 @@ calculate_shap <- function(final_fit,
         )
         as.matrix(as.data.frame(shap_k))
       })
-      # Promedio de |SHAP| entre clases → importancia global
+      # Promedio de |SHAP| entre clases -> importancia global
       shap_agg <- Reduce("+", lapply(all_shap, abs)) / length(all_shap)
       as.data.frame(shap_agg)
     } else {
