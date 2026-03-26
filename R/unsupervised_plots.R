@@ -363,6 +363,59 @@
       })
     }
 
+    # --- LCA Profile Plot ---
+    if (!is.null(resultado$clustering$results$lca)) {
+      tryCatch({
+        lca_res <- resultado$clustering$results$lca
+        probs_list <- lca_res$item_response_probs
+        n_classes <- length(lca_res$size)
+
+        # Construir data frame de probabilidades de respuesta por clase
+        # Para datos binarios: P(item=max_category | class)
+        prof_rows <- list()
+        for (item_name in names(probs_list)) {
+          prob_matrix <- probs_list[[item_name]]
+          # Tomar la probabilidad de la categoria mas alta (ultima columna)
+          for (cl in seq_len(n_classes)) {
+            prof_rows[[length(prof_rows) + 1]] <- data.frame(
+              Item = item_name,
+              Class = paste0("Clase ", cl),
+              Probability = prob_matrix[cl, ncol(prob_matrix)],
+              stringsAsFactors = FALSE
+            )
+          }
+        }
+        prof_df <- do.call(rbind, prof_rows)
+        prof_df$Item <- factor(prof_df$Item, levels = names(probs_list))
+
+        # Proporciones de clase para leyenda
+        class_props <- round(lca_res$size / sum(lca_res$size) * 100, 1)
+        class_labels <- paste0("Clase ", seq_len(n_classes), " (", class_props, "%)")
+        prof_df$Class <- factor(prof_df$Class,
+                                levels = paste0("Clase ", seq_len(n_classes)),
+                                labels = class_labels)
+
+        fig_num <- fig_num + 1
+        p <- ggplot2::ggplot(prof_df, ggplot2::aes(x = Item, y = Probability,
+                                                     color = Class, group = Class)) +
+          ggplot2::geom_line(linewidth = 0.8) +
+          ggplot2::geom_point(ggplot2::aes(shape = Class), size = 2.5) +
+          ggplot2::scale_color_manual(values = cluster_colors[seq_len(n_classes)]) +
+          ggplot2::scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+          ggplot2::labs(title = "LCA - Perfil de Clases Latentes",
+                        x = NULL, y = "Probabilidad de Respuesta",
+                        color = "Clase", shape = "Clase") +
+          ggplot2::theme_minimal(base_size = 12) +
+          ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+                         legend.position = "bottom")
+
+        figures[[paste0("Fig", fig_num, "_LCA_Profiles")]] <- p
+        if (verbose) cat("  Figura", fig_num, ": LCA Perfil de Clases\n")
+      }, error = function(e) {
+        if (verbose) cat("  [!] Error en LCA Profile Plot:", conditionMessage(e), "\n")
+      })
+    }
+
     # --- Cluster Sizes ---
     if (!is.null(resultado$evaluation$best_algorithm)) {
       tryCatch({

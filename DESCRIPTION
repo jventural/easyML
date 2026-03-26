@@ -75,6 +75,7 @@ Suggests:
     isotree,
     VIM,
     ggdendro,
+    poLCA,
     NbClust,
     MatchIt,
     cobalt,

@@ -5,12 +5,15 @@
 
 #' @noRd
 .unsupervised_clustering <- function(data_processed,
+                                      data_original = NULL,
                                       algorithms,
                                       k, k_range,
                                       distance,
                                       hclust_method,
                                       dbscan_eps, dbscan_minPts,
                                       gmm_type,
+                                      lca_nclass = NULL, lca_nrep = 10,
+                                      exclude_cols = NULL,
                                       seed,
                                       verbose) {
 
@@ -228,6 +231,167 @@
         }
       }, error = function(e) {
         if (verbose) cat("  [ERROR] GMM fallo:", conditionMessage(e), "\n")
+      })
+    }
+  }
+
+  # =========================================================================
+  # 4.6 LCA (Latent Class Analysis)
+  # =========================================================================
+  if ("lca" %in% algorithms) {
+    if (verbose) .print_subsection(4, 6, "LCA (Latent Class Analysis)")
+
+    if (!requireNamespace("poLCA", quietly = TRUE)) {
+      if (verbose) cat("  [!] Paquete 'poLCA' no instalado. Instale con: install.packages('poLCA')\n")
+    } else {
+      tryCatch({
+        # LCA requiere datos categoricos (enteros positivos 1, 2, ..., R)
+        # Usar data_original para preservar la naturaleza categorica
+        if (!is.null(data_original)) {
+          if (!is.null(exclude_cols)) {
+            lca_cols <- names(data_original)[!names(data_original) %in% exclude_cols]
+          } else {
+            lca_cols <- names(data_original)
+          }
+          data_lca_raw <- data_original[, lca_cols, drop = FALSE]
+        } else {
+          data_lca_raw <- data_processed
+        }
+
+        # Convertir a enteros positivos (poLCA requiere 1, 2, ..., R)
+        data_lca <- as.data.frame(lapply(data_lca_raw, function(x) {
+          if (is.factor(x) || is.character(x)) {
+            as.integer(as.factor(x))
+          } else if (is.numeric(x)) {
+            # Si ya son enteros positivos, mantener; sino discretizar
+            vals <- unique(na.omit(x))
+            if (all(vals == floor(vals)) && min(vals) >= 0 && length(vals) <= 20) {
+              as.integer(as.factor(x))
+            } else {
+              # Datos continuos: no aptos para LCA
+              NULL
+            }
+          } else {
+            NULL
+          }
+        }))
+
+        # Remover columnas NULL (variables continuas no aptas)
+        null_cols <- sapply(data_lca, is.null)
+        if (any(null_cols)) {
+          removed_lca <- names(data_lca)[null_cols]
+          data_lca <- data_lca[, !null_cols, drop = FALSE]
+          if (verbose) cat("  [!] Variables continuas excluidas de LCA:", paste(removed_lca, collapse = ", "), "\n")
+        }
+
+        if (ncol(data_lca) < 2) {
+          if (verbose) cat("  [!] Insuficientes variables categoricas para LCA (minimo 2).\n")
+        } else {
+          # Remover filas con NA
+          complete_idx <- complete.cases(data_lca)
+          if (sum(!complete_idx) > 0 && verbose) {
+            cat("  [!] Removiendo", sum(!complete_idx), "filas con NA para LCA.\n")
+          }
+          data_lca <- data_lca[complete_idx, , drop = FALSE]
+
+          # Formula: todas las variables como indicadores
+          f <- as.formula(paste("cbind(",
+            paste(colnames(data_lca), collapse = ", "),
+            ") ~ 1"))
+
+          # Seleccion de numero de clases:
+          # Si lca_nclass esta definido, usarlo directamente
+          # Si no, buscar optimo por BIC (independiente del k de clustering)
+          if (is.null(lca_nclass)) {
+            if (verbose) cat("  Buscando numero optimo de clases por BIC...\n")
+
+            lca_k_range <- k_range[k_range >= 2]
+            lca_bic_values <- numeric(length(lca_k_range))
+            lca_aic_values <- numeric(length(lca_k_range))
+            lca_models <- list()
+
+            for (ki_idx in seq_along(lca_k_range)) {
+              ki <- lca_k_range[ki_idx]
+              tryCatch({
+                set.seed(seed)
+                lca_temp <- poLCA::poLCA(f, data = data_lca, nclass = ki,
+                                          nrep = lca_nrep, verbose = FALSE)
+                lca_bic_values[ki_idx] <- lca_temp$bic
+                lca_aic_values[ki_idx] <- lca_temp$aic
+                lca_models[[ki_idx]] <- lca_temp
+              }, error = function(e) {
+                lca_bic_values[ki_idx] <- Inf
+                lca_aic_values[ki_idx] <- Inf
+              })
+            }
+
+            best_lca_idx <- which.min(lca_bic_values)
+            k_use <- lca_k_range[best_lca_idx]
+            lca_fit <- lca_models[[best_lca_idx]]
+
+            if (verbose) {
+              cat("  BIC por numero de clases:\n")
+              for (ki_idx in seq_along(lca_k_range)) {
+                indicator <- if (lca_k_range[ki_idx] == k_use) " <<< optimo" else ""
+                cat(sprintf("    k=%d: BIC=%.2f, AIC=%.2f%s\n",
+                    lca_k_range[ki_idx], lca_bic_values[ki_idx],
+                    lca_aic_values[ki_idx], indicator))
+              }
+            }
+          } else {
+            k_use <- lca_nclass
+            set.seed(seed)
+            lca_fit <- poLCA::poLCA(f, data = data_lca, nclass = k_use,
+                                     nrep = lca_nrep, verbose = FALSE)
+          }
+
+          # Probabilidades posteriores
+          post_probs <- lca_fit$posterior
+
+          # Calcular R2 entropy
+          n_obs_lca <- nrow(post_probs)
+          k_lca <- ncol(post_probs)
+          E_sum <- -sum(post_probs * log(post_probs + 1e-10))
+          r2_entropy <- 1 - E_sum / (n_obs_lca * log(k_lca))
+
+          result$results$lca <- list(
+            labels              = lca_fit$predclass,
+            model               = lca_fit,
+            probabilities       = post_probs,
+            item_response_probs = lca_fit$probs,
+            bic                 = lca_fit$bic,
+            aic                 = lca_fit$aic,
+            entropy             = r2_entropy,
+            size                = as.integer(table(lca_fit$predclass)),
+            uncertainty         = apply(post_probs, 1, function(p) 1 - max(p)),
+            lca_variables       = colnames(data_lca),
+            complete_idx        = which(complete_idx)
+          )
+
+          if (verbose) {
+            cat("  Clases:", k_use, "\n")
+            cat("  Variables LCA:", ncol(data_lca), "\n")
+            cat("  Observaciones:", nrow(data_lca), "\n")
+            cat("  BIC:", round(lca_fit$bic, 2), "\n")
+            cat("  AIC:", round(lca_fit$aic, 2), "\n")
+            cat("  Entropy (R2):", round(r2_entropy, 4), "\n")
+            cat("  Tamanio de clases:", paste(table(lca_fit$predclass), collapse = ", "), "\n")
+            cat("  Incertidumbre media:", round(mean(1 - apply(post_probs, 1, max)), 4), "\n")
+
+            # Interpretacion entropy
+            if (r2_entropy > 0.8) {
+              cat("  Interpretacion: Separacion de clases EXCELENTE.\n")
+            } else if (r2_entropy > 0.6) {
+              cat("  Interpretacion: Separacion de clases BUENA.\n")
+            } else if (r2_entropy > 0.4) {
+              cat("  Interpretacion: Separacion de clases MODERADA.\n")
+            } else {
+              cat("  Interpretacion: Separacion de clases DEBIL.\n")
+            }
+          }
+        }
+      }, error = function(e) {
+        if (verbose) cat("  [ERROR] LCA fallo:", conditionMessage(e), "\n")
       })
     }
   }

@@ -14,7 +14,8 @@
 #' @param methods Vector con los tipos de analisis a ejecutar:
 #'   "clustering", "reduction", "anomaly" (default: todos).
 #' @param clustering_algorithms Algoritmos de clustering:
-#'   "kmeans", "hierarchical", "dbscan", "gmm" (default: todos).
+#'   "kmeans", "hierarchical", "dbscan", "gmm", "lca" (default: todos excepto lca).
+#'   LCA (Latent Class Analysis) requiere datos categoricos/binarios.
 #' @param k Numero de clusters. NULL (default) busca automaticamente el optimo.
 #' @param k_range Rango de k a evaluar cuando k = NULL (default: 2:10).
 #' @param distance Metrica de distancia: "euclidean", "manhattan", "gower" (default: "euclidean").
@@ -23,6 +24,8 @@
 #' @param dbscan_eps Radio epsilon para DBSCAN. NULL (default) lo calcula automaticamente.
 #' @param dbscan_minPts Puntos minimos para DBSCAN (default: 5).
 #' @param gmm_type Tipo de covarianza para GMM/mclust (default: "VVV").
+#' @param lca_nclass Numero de clases latentes para LCA. NULL (default) usa el k optimo.
+#' @param lca_nrep Repeticiones para LCA para evitar maximos locales (default: 10).
 #' @param reduction_methods Metodos de reduccion de dimensionalidad:
 #'   "pca", "tsne", "umap" (default: todos).
 #' @param n_components Numero de dimensiones objetivo para t-SNE y UMAP (default: 2).
@@ -86,6 +89,15 @@
 #'   anomaly_methods = "lof"
 #' )
 #'
+#' # LCA para datos categoricos/binarios
+#' resultado_lca <- unsupervised_ml(
+#'   data = mis_datos_binarios,
+#'   methods = "clustering",
+#'   clustering_algorithms = "lca",
+#'   lca_nclass = 4,   # o NULL para busqueda automatica por BIC
+#'   lca_nrep = 10
+#' )
+#'
 #' # Ver resultados
 #' print(resultado)
 #' summary(resultado)
@@ -104,6 +116,8 @@ unsupervised_ml <- function(data,
                             dbscan_eps = NULL,
                             dbscan_minPts = 5,
                             gmm_type = "VVV",
+                            lca_nclass = NULL,
+                            lca_nrep = 10,
                             # Reduction
                             reduction_methods = c("pca", "tsne", "umap"),
                             n_components = 2,
@@ -145,6 +159,7 @@ unsupervised_ml <- function(data,
         hclust_method = hclust_method,
         dbscan_eps = dbscan_eps, dbscan_minPts = dbscan_minPts,
         gmm_type = gmm_type,
+        lca_nclass = lca_nclass, lca_nrep = lca_nrep,
         reduction_methods = reduction_methods,
         n_components = n_components, pca_threshold = pca_threshold,
         tsne_perplexity = tsne_perplexity,
@@ -180,6 +195,7 @@ unsupervised_ml <- function(data,
       hclust_method = hclust_method,
       dbscan_eps = dbscan_eps, dbscan_minPts = dbscan_minPts,
       gmm_type = gmm_type,
+      lca_nclass = lca_nclass, lca_nrep = lca_nrep,
       reduction_methods = reduction_methods,
       n_components = n_components, pca_threshold = pca_threshold,
       tsne_perplexity = tsne_perplexity,
@@ -209,6 +225,7 @@ unsupervised_ml <- function(data,
                                        clustering_algorithms,
                                        k, k_range, distance, hclust_method,
                                        dbscan_eps, dbscan_minPts, gmm_type,
+                                       lca_nclass, lca_nrep,
                                        reduction_methods,
                                        n_components, pca_threshold,
                                        tsne_perplexity,
@@ -307,12 +324,15 @@ unsupervised_ml <- function(data,
   if ("clustering" %in% methods) {
     clustering_result <- .unsupervised_clustering(
       data_processed = data_processed,
+      data_original = data,
       algorithms = clustering_algorithms,
       k = k, k_range = k_range,
       distance = distance,
       hclust_method = hclust_method,
       dbscan_eps = dbscan_eps, dbscan_minPts = dbscan_minPts,
       gmm_type = gmm_type,
+      lca_nclass = lca_nclass, lca_nrep = lca_nrep,
+      exclude_cols = exclude_cols,
       seed = seed,
       verbose = verbose
     )
@@ -406,6 +426,13 @@ print.unsupervisedml <- function(x, ...) {
       best <- x$evaluation$best_algorithm
       cat("Mejor algoritmo:", best$algorithm,
           "(Silhouette =", round(best$silhouette, 3), ")\n")
+    }
+
+    # Info especifica LCA
+    if (!is.null(x$clustering$results$lca)) {
+      lca <- x$clustering$results$lca
+      cat("LCA: ", length(lca$size), " clases (BIC=", round(lca$bic, 1),
+          ", Entropy=", round(lca$entropy, 3), ")\n", sep = "")
     }
     cat("\n")
   }

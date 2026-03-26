@@ -227,6 +227,29 @@ predict.unsupervisedml <- function(result, newdata, algorithm = NULL, ...) {
       labels <- centers$Cluster[which.min(dists)]
     }
 
+  } else if (algorithm == "lca") {
+    if (!requireNamespace("poLCA", quietly = TRUE)) {
+      stop("Paquete 'poLCA' necesario para prediccion LCA.")
+    }
+    lca_model <- result$clustering$results$lca$model
+    lca_vars <- result$clustering$results$lca$lca_variables
+
+    if (!all(lca_vars %in% names(newdata))) {
+      missing <- setdiff(lca_vars, names(newdata))
+      stop("Faltan variables LCA en newdata: ", paste(missing, collapse = ", "))
+    }
+
+    newdata_lca <- as.data.frame(lapply(newdata[, lca_vars, drop = FALSE], function(x) {
+      if (is.factor(x) || is.character(x)) {
+        as.integer(as.factor(x))
+      } else {
+        as.integer(as.factor(x))
+      }
+    }))
+
+    post <- poLCA::poLCA.posterior(lca_model, y = newdata_lca)
+    labels <- apply(post, 1, which.max)
+
   } else {
     stop("Prediccion no soportada para algoritmo: ", algorithm)
   }

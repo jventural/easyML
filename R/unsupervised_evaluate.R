@@ -24,6 +24,37 @@
 
     if (verbose) .print_subsection(5, match(alg_name, names(clustering_result$results)), alg_name)
 
+    # --- LCA usa metricas propias (BIC/AIC/Entropy) ---
+    if (alg_name == "lca") {
+      metrics <- list(
+        bic = alg$bic,
+        aic = alg$aic,
+        entropy = alg$entropy,
+        uncertainty_mean = mean(alg$uncertainty)
+      )
+      result[[alg_name]] <- metrics
+
+      if (verbose) {
+        cat("  BIC:", round(alg$bic, 2), "\n")
+        cat("  AIC:", round(alg$aic, 2), "\n")
+        cat("  Entropy (R2):", round(alg$entropy, 4), "\n")
+        cat("  Incertidumbre media:", round(mean(alg$uncertainty), 4), "\n")
+        cat("  [Nota] LCA usa metricas probabilisticas (BIC/AIC/Entropy),\n")
+        cat("         no metricas basadas en distancia (Silhouette, CH, DB).\n")
+      }
+
+      # Fila para comparacion (NA en metricas de distancia)
+      comparison_rows[[alg_name]] <- data.frame(
+        algorithm = alg_name,
+        silhouette = NA_real_,
+        calinski_harabasz = NA_real_,
+        davies_bouldin = NA_real_,
+        dunn = NA_real_,
+        stringsAsFactors = FALSE
+      )
+      next
+    }
+
     # Filtrar ruido (DBSCAN label = 0)
     valid_idx <- labels > 0
     if (sum(valid_idx) < 2 || length(unique(labels[valid_idx])) < 2) {
@@ -107,8 +138,14 @@
     rownames(comparison_df) <- NULL
     result$comparison <- comparison_df
 
-    # Mejor algoritmo (por silhouette)
-    best_idx <- which.max(comparison_df$silhouette)
+    # Mejor algoritmo (por silhouette, excluyendo LCA que usa BIC/AIC)
+    sil_values <- comparison_df$silhouette
+    sil_values[is.na(sil_values)] <- -Inf
+    best_idx <- which.max(sil_values)
+    if (all(is.na(comparison_df$silhouette))) {
+      # Solo hay LCA, usar el primero
+      best_idx <- 1
+    }
     result$best_algorithm <- list(
       algorithm = comparison_df$algorithm[best_idx],
       silhouette = comparison_df$silhouette[best_idx],
@@ -124,7 +161,9 @@
 
       # Interpretacion del silhouette
       best_sil <- comparison_df$silhouette[best_idx]
-      if (best_sil > 0.7) {
+      if (is.na(best_sil)) {
+        cat("  [Nota] Mejor algoritmo es LCA (evaluado por BIC/AIC/Entropy, no Silhouette).\n")
+      } else if (best_sil > 0.7) {
         cat("  Interpretacion: Estructura de clusters FUERTE.\n")
       } else if (best_sil > 0.5) {
         cat("  Interpretacion: Estructura de clusters RAZONABLE.\n")
