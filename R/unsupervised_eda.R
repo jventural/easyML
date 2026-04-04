@@ -186,10 +186,13 @@
       x <- data_analysis[[v]]
       x <- x[!is.na(x)]
       # Shapiro-Wilk requiere n entre 3 y 5000
-      if (length(x) >= 3 && length(x) <= 5000) {
+      if (length(x) >= 3 && length(x) <= 5000 && sd(x) > 0) {
         test <- shapiro.test(x)
         data.frame(variable = v, W = test$statistic, p_value = test$p.value,
                    normal = test$p.value > 0.05, stringsAsFactors = FALSE)
+      } else if (length(x) >= 3 && sd(x) == 0) {
+        data.frame(variable = v, W = NA, p_value = NA,
+                   normal = NA, stringsAsFactors = FALSE)
       } else {
         data.frame(variable = v, W = NA, p_value = NA,
                    normal = NA, stringsAsFactors = FALSE)

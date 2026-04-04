@@ -1174,7 +1174,8 @@ generate_report_with_ai <- function(json_path,
                                      title = "Analisis de Machine Learning",
                                      author = NULL,
                                      language = c("es", "en"),
-                                     model = "gpt-4.1-mini") {
+                                     model = "gpt-4.1-mini",
+                                     custom_instructions = NULL) {
 
   # Validar argumentos
   language <- match.arg(language)
@@ -1216,7 +1217,8 @@ generate_report_with_ai <- function(json_path,
   system_prompt <- .build_system_prompt(language, classification_type)
 
   # Construir mensaje del usuario
-  user_message <- .build_user_message(meta, metrics, model_info, var_imp, json_data, language)
+  user_message <- .build_user_message(meta, metrics, model_info, var_imp, json_data, language,
+                                      custom_instructions = custom_instructions)
 
   # Llamar a la API de OpenAI
   message("Generando reporte con ", model, "...")
@@ -2087,7 +2089,8 @@ generate_report_with_ai <- function(json_path,
 
 #' @title Construir Mensaje del Usuario
 #' @noRd
-.build_user_message <- function(meta, metrics, model_info, var_imp, json_data, language) {
+.build_user_message <- function(meta, metrics, model_info, var_imp, json_data, language,
+                                custom_instructions = NULL) {
 
   # Formatear metricas
   metrics_text <- paste(sapply(names(metrics), function(m) {
@@ -2207,6 +2210,19 @@ generate_report_with_ai <- function(json_path,
     "- Estilo prosa narrativa (parrafos), NO bullets en Metodo ni Resultados",
     "- Verifica cada numero del reporte contra el verbose antes de entregar",
     "",
+    if (!is.null(custom_instructions) && nzchar(custom_instructions)) {
+      paste(
+        "##############################################################################",
+        "INSTRUCCIONES ADICIONALES DEL USUARIO (PRIORIDAD ALTA)",
+        "##############################################################################",
+        "",
+        custom_instructions,
+        "",
+        sep = "\n"
+      )
+    } else {
+      ""
+    },
     "GENERA EL REPORTE AHORA.",
     sep = "\n"
   )
