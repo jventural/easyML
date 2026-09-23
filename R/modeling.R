@@ -156,6 +156,25 @@ define_models <- function(models, task, verbose = TRUE) {
 }
 
 
+# Recalcula el pr_auc de cada pliegue con las predicciones guardadas
+# (save_pred = TRUE), usando la probabilidad de la clase positiva. Si algo
+# falla devuelve el resultado sin tocar.
+.corregir_pr_auc_cv <- function(cv_result, target, event_info) {
+  tryCatch({
+    for (i in seq_len(nrow(cv_result))) {
+      pred <- cv_result$.predictions[[i]]
+      m <- cv_result$.metrics[[i]]
+      if (is.null(pred) || !"pr_auc" %in% m$.metric) next
+      m$.estimate[m$.metric == "pr_auc"] <- yardstick::pr_auc_vec(
+        truth = pred[[target]], estimate = pred[[event_info$prob_col]],
+        event_level = event_info$event_level)
+      cv_result$.metrics[[i]] <- m
+    }
+    cv_result
+  }, error = function(e) cv_result)
+}
+
+
 #' @title Entrenar Modelos con CV
 #' @export
 fit_models_cv <- function(model_specs, recipe, cv_folds, task, select_metric = NULL, verbose = TRUE) {
@@ -240,6 +259,14 @@ fit_models_cv <- function(model_specs, recipe, cv_folds, task, select_metric = N
         control = tune::control_resamples(save_pred = TRUE)
       )
     )
+
+    # PR-AUC binario: fit_resamples() pasa a las metricas de probabilidad la
+    # PRIMERA columna (.pred_<nivel 1>), asi que pr_auc salia calculado para
+    # la clase negativa (p. ej., .999 con un 4 % de positivos). Se recalcula
+    # por pliegue con la columna y el event_level de la clase positiva.
+    if (task == "classification" && n_levels == 2) {
+      cv_result <- .corregir_pr_auc_cv(cv_result, target_var, event_info)
+    }
 
     cv_results[[model_name]] <- cv_result
 

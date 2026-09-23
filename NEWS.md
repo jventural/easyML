@@ -1,3 +1,16 @@
+# easyML 2.4.2 (2026-09-23)
+
+* `fit_models_cv()`: en clasificación binaria, el **PR-AUC de la validación
+  cruzada se calculaba para la clase negativa**. `tune::fit_resamples()` pasa a
+  las métricas de probabilidad la primera columna (`.pred_<nivel 1>`), y
+  `pr_auc` no se ajustaba al `event_level`. Con clases desbalanceadas daba
+  valores inverosímiles (p. ej., .999 con un 4 % de positivos, frente a .786
+  real). Ahora se recalcula por pliegue con la probabilidad de la clase
+  positiva. El ROC-AUC no estaba afectado, porque es simétrico.
+* Nota: `.calculate_test_metrics()` (utils_easyml.R) toma la segunda clase
+  como positiva pero llama a yardstick sin `event_level`. No la usa ninguna
+  función del paquete; conviene corregirla o eliminarla.
+
 # easyML 2.4.1 (2026-09-22)
 
 Correcciones encontradas al correr `supervised_ml()` sobre datos bibliométricos

@@ -56,3 +56,15 @@ t2 <- r2$threshold_optimization
 ok(identical(t2$source, "cv_oof"), "el umbral se elige con predicciones fuera de pliegue")
 ok(!is.null(t2$test_metrics) && t2$test_metrics$threshold == t2$optimal_threshold,
    "las metricas de prueba usan ese mismo umbral")
+
+cat("\n=== TEST 6: PR-AUC de la validacion cruzada para la clase positiva (v2.4.2) ===\n")
+cv2 <- r2$cv_summary
+prev <- mean(datos$y == "Yes")
+ok(all(cv2$pr_auc < 0.95),
+   sprintf("PR-AUC en CV por debajo de .95 con %.0f %% de positivos (antes salia ~.99, el de la clase 'No')",
+           100 * prev))
+oof <- tune::collect_predictions(r2$modeling$cv_results$glm, summarize = FALSE)
+pr_si <- mean(sapply(split(oof, oof$id), function(f)
+  yardstick::pr_auc_vec(f$y, f$.pred_Yes, event_level = "second")))
+ok(abs(pr_si - cv2$pr_auc[cv2$model == "glm"]) < 1e-6,
+   "coincide con el PR-AUC de 'Yes' calculado a mano sobre los pliegues")
