@@ -338,18 +338,18 @@ compare_models <- function(cv_results, task, select_metric = NULL, verbose = TRU
   metric_cols <- setdiff(names(summary_df)[vapply(summary_df, is.numeric, logical(1))], "model")
   if (length(metric_cols) > 0) {
     minimize_metrics <- c("rmse", "mae", "mape")
-    rank_mat <- sapply(metric_cols, function(m) {
+    # do.call(cbind, lapply(...)) devuelve SIEMPRE una matriz de
+    # n_modelos x n_metricas. Con sapply(), cuando habia un solo modelo el
+    # resultado era un vector de longitud n_metricas y la asignacion fallaba
+    # ("Can't recycle input of size 10 to size 1").
+    rank_mat <- do.call(cbind, lapply(metric_cols, function(m) {
       if (m %in% minimize_metrics) {
         rank(summary_df[[m]], ties.method = "average")
       } else {
         rank(-summary_df[[m]], ties.method = "average")
       }
-    })
-    if (is.matrix(rank_mat)) {
-      summary_df$rank_mean <- round(rowMeans(rank_mat), 2)
-    } else {
-      summary_df$rank_mean <- rank_mat
-    }
+    }))
+    summary_df$rank_mean <- round(rowMeans(rank_mat), 2)
   }
 
   # Ordenar segun la metrica seleccionada

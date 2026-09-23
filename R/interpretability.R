@@ -113,12 +113,36 @@ calculate_shap <- function(final_fit,
   # Preparar datos
   predictors <- setdiff(names(train_data), target)
 
-  # Submuestra para SHAP
+  # Variables que el modelo realmente usa. La receta puede eliminar
+  # predictores (alta correlacion, VIF, varianza cero); fastshap les asigna
+  # SHAP = 0 y en el grafico parecen "sin importancia" cuando el modelo
+  # nunca las vio. Se detectan aqui para quitarlas del resultado.
+  used_predictors <- .shap_used_predictors(final_fit, train_data, predictors)
+  removed_vars <- setdiff(predictors, used_predictors)
+
+  # Submuestra para SHAP. En clasificacion se estratifica con el mismo
+  # numero de casos por clase: con clases desbalanceadas, una muestra
+  # aleatoria de 100 deja muy pocos casos de la clase minoritaria
+  # (p. ej., 4 con una prevalencia del 4 %) y la importancia es inestable.
+  target_test <- test_data[[target]]
   n_test <- min(n_samples, nrow(test_data))
-  test_sample <- test_data[sample(nrow(test_data), n_test), ]
+  if (!is.numeric(target_test)) {
+    idx <- .shap_stratified_index(target_test, n_test)
+    sample_design <- "estratificado (mismo numero de casos por clase)"
+  } else {
+    idx <- sample(nrow(test_data), n_test)
+    sample_design <- "aleatorio"
+  }
+  test_sample <- test_data[idx, ]
+  n_test <- length(idx)
 
   if (verbose) {
-    cat("    Calculando SHAP para", n_test, "observaciones...\n")
+    cat("    Calculando SHAP para", n_test, "observaciones (muestreo",
+        sample_design, ")...\n")
+    if (!is.numeric(target_test)) {
+      tab <- table(test_sample[[target]])
+      cat("    Casos por clase:", paste(names(tab), tab, sep = " = ", collapse = ", "), "\n")
+    }
   }
 
   # Usar el workflow completo (no el modelo extraido) para que la receta
@@ -189,12 +213,23 @@ calculate_shap <- function(final_fit,
     return(NULL)
   }
 
+  # Quitar las variables que el modelo no usa (ver arriba)
+  shap_values <- as.data.frame(shap_values)
+  keep <- intersect(colnames(shap_values), used_predictors)
+  shap_values <- shap_values[, keep, drop = FALSE]
+
   # Calcular importancia media por variable
   shap_importance <- data.frame(
     Variable = colnames(shap_values),
     Mean_Abs_SHAP = colMeans(abs(shap_values))
   )
   shap_importance <- shap_importance[order(-shap_importance$Mean_Abs_SHAP), ]
+  rownames(shap_importance) <- NULL
+
+  # Colinealidad entre las variables usadas: con VIF altos, el modelo reparte
+  # el efecto entre variables casi redundantes de forma arbitraria y el SHAP
+  # de cada una no es interpretable por separado.
+  collinear_vars <- .shap_collinear(train_data, keep, threshold = 5)
 
   if (verbose) {
     cat("\n    Importancia SHAP (top 10):\n\n")
@@ -203,20 +238,94 @@ calculate_shap <- function(final_fit,
       cat("    ", i, ". ", top10$Variable[i], " (",
           round(top10$Mean_Abs_SHAP[i], 4), ")\n", sep = "")
     }
+    if (length(removed_vars) > 0) {
+      cat("\n    [i] Variables eliminadas en el preprocesamiento (el modelo no las usa,\n",
+          "        se excluyen del SHAP):", paste(removed_vars, collapse = ", "), "\n")
+    }
+    if (nrow(collinear_vars) > 0) {
+      cat("\n    [!] Colinealidad entre predictores usados (VIF > 5):\n")
+      for (i in seq_len(nrow(collinear_vars))) {
+        cat("        -", collinear_vars$Variable[i], "(VIF =",
+            round(collinear_vars$VIF[i], 1), ")\n")
+      }
+      cat("        El reparto del SHAP entre estas variables depende de cual elige\n",
+          "       el modelo y NO debe interpretarse variable por variable. Para saber\n",
+          "       cuanto discrimina cada una por si sola, use una medida univariada\n",
+          "       (p. ej., AUC de cada predictor).\n")
+    }
   }
 
   # Guardar test_sample solo con predictores y row-names limpios
   # para que shapviz no tenga discrepancia de filas
-  test_sample_clean <- as.data.frame(test_sample[, predictors, drop = FALSE])
+  test_sample_clean <- as.data.frame(test_sample[, keep, drop = FALSE])
   rownames(test_sample_clean) <- NULL
-  shap_values <- as.data.frame(shap_values)
   rownames(shap_values) <- NULL
 
   list(
     shap_values = shap_values,
     importance = shap_importance,
-    test_sample = test_sample_clean
+    test_sample = test_sample_clean,
+    removed_vars = removed_vars,
+    collinear_vars = collinear_vars,
+    sample_design = sample_design
   )
+}
+
+
+# Predictores que el workflow ajustado realmente usa: los que sobreviven a la
+# receta preparada. Una variable original cuenta como usada si aparece tal
+# cual o como prefijo de una columna dummy (var_nivel). Si no se puede
+# determinar, se devuelven todos (comportamiento anterior).
+.shap_used_predictors <- function(final_fit, train_data, predictors) {
+  tryCatch({
+    rec <- workflows::extract_recipe(final_fit, estimated = TRUE)
+    baked <- names(recipes::bake(rec, new_data = utils::head(train_data, 5)))
+    used <- predictors[vapply(predictors, function(p) {
+      p %in% baked || any(startsWith(baked, paste0(p, "_")))
+    }, logical(1))]
+    if (length(used) == 0) predictors else used
+  }, error = function(e) predictors)
+}
+
+
+# Indices de una muestra con el mismo numero de casos por clase (hasta donde
+# alcance cada clase); lo que falte se completa al azar con el resto.
+.shap_stratified_index <- function(y, n) {
+  y <- factor(y)
+  por_clase <- floor(n / nlevels(y))
+  idx <- unlist(lapply(levels(y), function(k) {
+    pool <- which(y == k)
+    if (length(pool) <= por_clase) pool else sample(pool, por_clase)
+  }), use.names = FALSE)
+  faltan <- n - length(idx)
+  if (faltan > 0) {
+    resto <- setdiff(seq_along(y), idx)
+    idx <- c(idx, if (length(resto) <= faltan) resto else sample(resto, faltan))
+  }
+  idx
+}
+
+
+# VIF de las variables numericas usadas: diagonal de la inversa de la matriz
+# de correlaciones. Devuelve las que superan el umbral.
+.shap_collinear <- function(data, vars, threshold = 5) {
+  vacio <- data.frame(Variable = character(), VIF = numeric())
+  num <- vars[vapply(vars, function(v) is.numeric(data[[v]]), logical(1))]
+  if (length(num) < 2) return(vacio)
+  tryCatch({
+    R <- stats::cor(data[, num, drop = FALSE], use = "pairwise.complete.obs")
+    # si R es singular (variables exactamente redundantes), pseudoinversa por
+    # SVD, sin depender de MASS
+    inv <- tryCatch(solve(R), error = function(e) {
+      s <- svd(R)
+      d <- ifelse(s$d > max(dim(R)) * max(s$d) * .Machine$double.eps, 1 / s$d, 0)
+      s$v %*% (d * t(s$u))
+    })
+    vif <- diag(inv)
+    out <- data.frame(Variable = num, VIF = as.numeric(vif))
+    out <- out[out$VIF > threshold, , drop = FALSE]
+    out[order(-out$VIF), , drop = FALSE]
+  }, error = function(e) vacio)
 }
 
 

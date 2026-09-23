@@ -1,8 +1,8 @@
 Package: easyML
 Type: Package
 Title: Easy Machine Learning Pipeline for Supervised, Unsupervised, Causal, and Reinforcement Learning
-Version: 2.4.0
-Date: 2026-03-22
+Version: 2.4.1
+Date: 2026-09-22
 Authors@R: c(
     person("Jose", "Ventura-Leon",
            email = "jventuraleon@gmail.com",

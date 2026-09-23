@@ -10,6 +10,39 @@
 # 1. OPTIMIZACION DE THRESHOLD (Clasificación)
 # =============================================================================
 
+# Predicciones fuera de pliegue del workflow final (ya afinado), reajustado con
+# los pliegues de la validacion cruzada del entrenamiento. Sirven para ELEGIR
+# el umbral sin tocar el conjunto de prueba. NULL si algo falla.
+.oof_predictions <- function(final_workflow, cv_folds, target, seed = 2024) {
+  if (is.null(final_workflow) || is.null(cv_folds)) return(NULL)
+  tryCatch({
+    set.seed(seed)
+    res <- suppressMessages(tune::fit_resamples(
+      final_workflow, resamples = cv_folds,
+      control = tune::control_resamples(save_pred = TRUE)))
+    pred <- tune::collect_predictions(res)
+    if (!target %in% names(pred)) return(NULL)
+    as.data.frame(pred)
+  }, error = function(e) NULL)
+}
+
+# Sensibilidad, especificidad y precision de unas predicciones con un umbral dado.
+.threshold_metrics_on <- function(predictions, target, threshold) {
+  tryCatch({
+    ev <- .detect_event_level(predictions[[target]])
+    probs <- predictions[[ev$prob_col]]
+    truth <- predictions[[target]] == ev$positive_class
+    pred <- probs >= threshold
+    tp <- sum(pred & truth); fn <- sum(!pred & truth)
+    tn <- sum(!pred & !truth); fp <- sum(pred & !truth)
+    data.frame(threshold = threshold,
+               sensitivity = tp / (tp + fn), specificity = tn / (tn + fp),
+               precision = if (tp + fp > 0) tp / (tp + fp) else NA_real_,
+               balanced_accuracy = (tp / (tp + fn) + tn / (tn + fp)) / 2,
+               tp = tp, fp = fp, tn = tn, fn = fn)
+  }, error = function(e) NULL)
+}
+
 #' @title Optimizar Threshold de Clasificación
 #'
 #' @description

@@ -625,12 +625,36 @@ supervised_ml <- function(data,
       cat("    es >= 0.5. Pero este umbral no siempre es optimo. La optimizacion\n")
       cat("    busca el mejor punto de corte segun el criterio seleccionado.\n\n")
     }
+    # El umbral se ELIGE con predicciones fuera de pliegue del conjunto de
+    # entrenamiento (el workflow final, ya afinado, reajustado con los mismos
+    # pliegues de la validacion cruzada) y se EVALUA en el conjunto de prueba.
+    # Hasta la v2.4.0 se elegia y evaluaba sobre las mismas predicciones de
+    # prueba: la sensibilidad y especificidad reportadas eran optimistas.
+    oof <- .oof_predictions(tuning_result$final_workflow, modeling_result$cv_folds,
+                            target, seed)
+    threshold_source <- if (is.null(oof)) "test" else "cv_oof"
+    if (verbose && threshold_source == "cv_oof") {
+      cat("    El umbral se elige con predicciones fuera de pliegue (validacion\n")
+      cat("    cruzada del entrenamiento) y se evalua en el conjunto de prueba.\n\n")
+    } else if (verbose) {
+      cat("    [!] No se pudieron obtener predicciones fuera de pliegue: el umbral\n")
+      cat("        se elige sobre el conjunto de prueba (estimacion optimista).\n\n")
+    }
     threshold_result <- optimize_threshold(
-      predictions = evaluation_result$predictions,
+      predictions = if (is.null(oof)) evaluation_result$predictions else oof,
       target = target,
       method = threshold_method,
       verbose = verbose
     )
+    threshold_result$source <- threshold_source
+    threshold_result$test_metrics <- .threshold_metrics_on(
+      evaluation_result$predictions, target, threshold_result$optimal_threshold)
+    if (verbose && !is.null(threshold_result$test_metrics)) {
+      tm <- threshold_result$test_metrics
+      cat("    En el conjunto de prueba, con ese umbral:\n")
+      cat("      - Sensibilidad:", round(tm$sensitivity * 100, 1), "%\n")
+      cat("      - Especificidad:", round(tm$specificity * 100, 1), "%\n\n")
+    }
     resultado$threshold_optimization <- threshold_result
     resultado$optimal_threshold <- threshold_result$optimal_threshold
     if (verbose) .print_reference("threshold")
